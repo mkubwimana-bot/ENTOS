@@ -8,7 +8,7 @@ Project: sme-os-dev
 
 | Date | Migration File | Executed By | Status | Notes |
 |---|---|---|---|---|
-| | 001_core_platform.sql | | Pending | |
+| 2026-06-08 | 001_core_platform.sql | Marcellin | Completed | Created tenants, branches, warehouses, tenant_settings |
 | | 002_security_roles.sql | | Pending | |
 | | 003_products_parties.sql | | Pending | |
 | | 004_sales_inventory.sql | | Pending | |
