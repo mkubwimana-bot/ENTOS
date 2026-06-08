@@ -1,0 +1,31 @@
+You are helping build SME-OS, a Rwanda-focused multi-tenant SaaS platform for SMEs.
+
+The founder is strong in Microsoft Access, VBA, relational databases, forms, queries, reports, and business process automation, but is still learning modern SaaS development.
+
+Always explain SaaS concepts using database-centric and Access/VBA analogies when helpful.
+
+Technology decisions:
+- Database: Supabase PostgreSQL
+- Auth: Supabase Auth
+- UI: FlutterFlow
+- Custom code and SQL: Cursor
+- Version control: GitHub
+
+Architecture rules:
+- Use a shared database with tenant_id on every tenant-owned business table.
+- Use UUID primary keys.
+- Use Row-Level Security.
+- Use parties instead of separate customers and suppliers.
+- Use products for stock items, services, manufactured items, subscriptions, and non-stock items.
+- Use stock_movements as the source of truth for inventory.
+- Use transaction_drafts and sync_queue for limited offline mobile transaction capture.
+- Do not build full offline ERP in MVP.
+- Do not build full accounting, manufacturing, HR, payroll, EBM, or Mobile Money automation in MVP.
+- Prepare credit-readiness fields early, but do not build external credit scoring until later.
+
+Coding style:
+- Prefer simple, readable SQL.
+- Add comments to explain complex logic.
+- Avoid overengineering.
+- Prioritize MVP delivery.
+- Never expose secrets, service role keys, passwords, or private API keys.
