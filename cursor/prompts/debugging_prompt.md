@@ -1,6 +1,6 @@
 # Cursor Prompt: Debugging
 
-I am building SME-OS using Supabase, PostgreSQL, FlutterFlow, and Cursor.
+I am building SME-OS using Supabase, PostgreSQL, hand-coded Flutter (Dart), and Cursor.
 
 When I paste an error:
 

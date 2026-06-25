@@ -34,7 +34,7 @@ The first MVP focuses on:
 
 - Supabase Auth for authentication
 
-- FlutterFlow for frontend
+- Hand-coded Flutter (Dart) for the frontend (Android first; not FlutterFlow)
 
 - Cursor for custom code and SQL
 

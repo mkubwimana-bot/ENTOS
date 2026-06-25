@@ -1,10 +1,12 @@
-# SME-OS FlutterFlow Screen Map
+# SME-OS Flutter Screen Map
 
 ## Purpose
 
-This document defines the first FlutterFlow screens for the SME-OS MVP.
+This document defines the first screens for the SME-OS MVP, built as a
+hand-coded Flutter (Dart) app. It is not a FlutterFlow project: every screen,
+widget, and Supabase query is written by hand.
 
-The app will connect to Supabase as the backend. Supabase will handle:
+The app connects to Supabase as the backend. Supabase handles:
 
 - authentication
 - tenant data
@@ -16,6 +18,10 @@ The app will connect to Supabase as the backend. Supabase will handle:
 - inventory
 - dashboard views
 - mobile/offline draft tracking
+
+Each "screen" below is a Flutter screen (route) composed of widgets. Think of a
+screen as roughly equivalent to an Access form, and its widgets as the form's
+controls.
 
 ## MVP Screen Groups
 
@@ -160,7 +166,9 @@ Main views:
 - `vw_product_sales_summary`
 - `vw_gross_profit_simple`
 
-## MVP Build Order in FlutterFlow
+## MVP Build Order
+
+Build the Flutter screens in this order:
 
 1. Login
 2. Dashboard
@@ -179,7 +187,8 @@ Main views:
 
 Do not build all screens at once.
 
-Build one screen, connect it to Supabase, test it, then continue.
+Build one screen, connect it to Supabase, test it on a real device build, then
+continue.
 
 The first real app screen after login should be:
 

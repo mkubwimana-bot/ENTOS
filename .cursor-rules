@@ -1,31 +1,87 @@
-You are helping build SME-OS, a Rwanda-focused multi-tenant SaaS platform for SMEs.
+# SME-OS — Cursor Project Rules
 
-The founder is strong in Microsoft Access, VBA, relational databases, forms, queries, reports, and business process automation, but is still learning modern SaaS development.
+## Project
+You are helping build SME-OS, a Rwanda-focused, multi-tenant SaaS platform for SMEs.
+The authoritative architecture spec is `/docs/architecture.md` (SME-OS Volume 3, v1.3).
+Read it before proposing schema or feature changes and keep your work consistent with it,
+including Section 32 (credit-footprint layer) and Section 33 (data-protection compliance).
 
-Always explain SaaS concepts using database-centric and Access/VBA analogies when helpful.
+## Founder context
+The founder has a strong relational-database and Microsoft Access/VBA background
+(forms, queries, reports, business-process automation) plus domain expertise in finance,
+and is still learning modern SaaS and Flutter development.
+When a Flutter, Dart, or web concept is unfamiliar, explain it briefly using
+relational-database or Access/VBA analogies. Treat Dart widgets as roughly analogous
+to Access forms/controls when that helps.
 
-Technology decisions:
-- Database: Supabase PostgreSQL
-- Auth: Supabase Auth
-- UI: FlutterFlow
-- Custom code and SQL: Cursor
-- Version control: GitHub
+## Stack (hand-coded Flutter — NOT FlutterFlow)
+- Frontend: Flutter (Dart), written by hand. Do NOT use FlutterFlow.
+  Primary target is Android (low-end devices common among Rwandan SMEs); iOS and
+  Flutter web are secondary.
+- Supabase client: the official `supabase_flutter` package.
+- Auth: Supabase Auth via `supabase_flutter`.
+- Offline storage: a local SQLite database via Drift (relational, mirrors the Postgres
+  schema). Encrypt it with SQLCipher since it will hold personal data. Use
+  `flutter_secure_storage` for keys/tokens.
+- Offline sync: implement the Volume 3 transaction_drafts + sync_queue pattern with a
+  client_reference_id idempotency key and conflict logging. Keep it limited; do not build
+  a full offline ERP in the MVP. (If custom sync becomes a bottleneck later, PowerSync is
+  a possible managed option — evaluate, don't adopt by default.)
+- State management: keep it simple (Provider or Riverpod). Avoid heavy architecture early.
+- Backend / database: Supabase (PostgreSQL).
+- Version control: GitHub — the repository is the single source of truth.
+- Editor / agent: Cursor (you may run flutter and dart CLI commands; the founder runs
+  emulator/device testing).
 
-Architecture rules:
-- Use a shared database with tenant_id on every tenant-owned business table.
-- Use UUID primary keys.
-- Use Row-Level Security.
+## Architecture rules (from Volume 3)
+- Shared database, multi-tenant: every tenant-owned table carries tenant_id.
+- UUID primary keys.
+- Enforce Row-Level Security on every tenant table. Never rely on client-side filtering
+  for tenant isolation.
 - Use parties instead of separate customers and suppliers.
-- Use products for stock items, services, manufactured items, subscriptions, and non-stock items.
-- Use stock_movements as the source of truth for inventory.
-- Use transaction_drafts and sync_queue for limited offline mobile transaction capture.
-- Do not build full offline ERP in MVP.
-- Do not build full accounting, manufacturing, HR, payroll, EBM, or Mobile Money automation in MVP.
-- Prepare credit-readiness fields early, but do not build external credit scoring until later.
+- Use products for stock items, services, manufactured items, subscriptions, and
+  non-stock items.
+- stock_movements is the source of truth for inventory; never store a computed quantity
+  as the truth.
+- Use transaction_drafts and sync_queue for limited offline mobile capture.
+- Soft-delete with audit logs, but provide a real erasure/anonymisation path for verified
+  data-subject requests (see compliance rules).
+- Prepare credit-readiness fields early (Section 32), but do not build external credit
+  scoring or data sharing until the credit layer's DPIA is complete.
 
-Coding style:
-- Prefer simple, readable SQL.
-- Add comments to explain complex logic.
-- Avoid overengineering.
-- Prioritize MVP delivery.
-- Never expose secrets, service role keys, passwords, or private API keys.
+## MVP scope discipline
+- Prioritise the MVP: sales, stock, parties, customer balances/receivables, dashboards,
+  and offline capture.
+- Do NOT build in the MVP: full accounting, manufacturing, HR, payroll, EBM automation,
+  or Mobile Money automation. Reserve integration points only.
+- Confirm each feature works on a real device build before moving to the next.
+
+## Data protection (Law 058/2021) — build-phase guardrails
+- During development use ONLY synthetic/seed data: clearly fake names, contacts, and TINs.
+  This keeps the project in Stage 1, with no data-protection obligations.
+- Do not wire up any flow that ingests real personal data of real people until the
+  Section 33 pre-launch compliance gate is satisfied.
+- Encrypt the on-device SQLite database (SQLCipher); never store personal data on the
+  device in cleartext.
+- Treat health data (e.g., a future pharmacy module) as sensitive; do not enable it
+  without the Article 11 safeguards.
+
+## Coding style
+- Prefer simple, readable Dart and SQL. Avoid overengineering.
+- Follow standard Dart conventions (effective Dart); run dart format.
+- Comment non-obvious logic.
+- Make small, reviewable commits with clear messages.
+- Plan before implementing, and wait for approval on non-trivial changes.
+
+## Security
+- Never expose secrets, service-role keys, passwords, or private API keys in app code
+  or in the repository.
+- The Flutter app uses only the Supabase anon key, protected by RLS; shipping the anon
+  key in a mobile app is expected and safe when RLS is correct. The service-role key is
+  server-side only (never in the app).
+- Validate and constrain all inputs; assume the client is untrusted.
+
+## Known gotcha
+- Rwanda is UTC+2. Dart DateTime arithmetic across local/UTC boundaries causes silent
+  month-boundary errors. For grouping or comparing local business dates, use string-based
+  YYYY-MM-DD arithmetic, or be explicit and consistent about UTC vs local everywhere.
