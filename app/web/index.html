@@ -31,6 +31,12 @@
 
   <title>sme_os</title>
   <link rel="manifest" href="manifest.json">
+
+  <!--
+    Passkeys Web SDK. Required only for Flutter WEB because supabase_flutter
+    bundles passkey support. Android/iOS use native APIs and do not need this.
+  -->
+  <script src="https://github.com/corbado/flutter-passkeys/releases/download/2.4.0/bundle.js"></script>
 </head>
 <body>
   <!--
