@@ -12,3 +12,19 @@ final authStateChangesProvider = StreamProvider<AuthState>((ref) {
   final client = ref.watch(supabaseClientProvider);
   return client.auth.onAuthStateChange;
 });
+
+/// True after the user opens a password-recovery deep link from their email.
+///
+/// The auth stream emits [AuthChangeEvent.passwordRecovery] only once, so we
+/// latch this flag until the user finishes setting a new password.
+class PasswordRecoveryMode extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void enable() => state = true;
+
+  void clear() => state = false;
+}
+
+final passwordRecoveryModeProvider =
+    NotifierProvider<PasswordRecoveryMode, bool>(PasswordRecoveryMode.new);

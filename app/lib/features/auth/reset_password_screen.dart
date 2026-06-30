@@ -3,24 +3,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/supabase/supabase_providers.dart';
-import 'forgot_password_screen.dart';
-import 'signup_screen.dart';
 
-/// Email/password sign-in screen backed by Supabase Auth.
+/// Shown after the user taps the password-reset link in their email.
 ///
-/// On success we do nothing here: the auth state stream updates and the
-/// AuthGate swaps this screen for the Home screen automatically.
-class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
+/// Supabase opens the app via deep link and emits [AuthChangeEvent.passwordRecovery].
+/// The user sets a new password here via [GoTrueClient.updateUser], then continues
+/// to the signed-in Home screen.
+class ResetPasswordScreen extends ConsumerStatefulWidget {
+  const ResetPasswordScreen({super.key});
 
   @override
-  ConsumerState<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<ResetPasswordScreen> createState() =>
+      _ResetPasswordScreenState();
 }
 
-class _LoginScreenState extends ConsumerState<LoginScreen> {
+class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
 
   bool _isSubmitting = false;
   bool _obscurePassword = true;
@@ -28,43 +28,28 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   void dispose() {
-    _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  void _goToSignup() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const SignupScreen()),
-    );
-  }
-
-  void _goToForgotPassword() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const ForgotPasswordScreen()),
-    );
-  }
-
-  Future<void> _signIn() async {
+  Future<void> _updatePassword() async {
     setState(() => _errorMessage = null);
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isSubmitting = true);
     try {
-      await ref
-          .read(supabaseClientProvider)
-          .auth
-          .signInWithPassword(
-            email: _emailController.text.trim(),
-            password: _passwordController.text,
-          );
+      await ref.read(supabaseClientProvider).auth.updateUser(
+        UserAttributes(password: _passwordController.text),
+      );
+      ref.read(passwordRecoveryModeProvider.notifier).clear();
     } on AuthException catch (e) {
       if (mounted) setState(() => _errorMessage = e.message);
     } catch (_) {
       if (mounted) {
         setState(() {
           _errorMessage =
-              'Could not sign in. Check your connection and try again.';
+              'Could not update your password. Check your connection and try again.';
         });
       }
     } finally {
@@ -72,16 +57,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
-  String? _validateEmail(String? value) {
-    final email = value?.trim() ?? '';
-    if (email.isEmpty) return 'Enter your email';
-    final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-    if (!emailRegex.hasMatch(email)) return 'Enter a valid email address';
+  String? _validatePassword(String? value) {
+    if (value == null || value.isEmpty) return 'Enter a new password';
+    if (value.length < 6) return 'Use at least 6 characters';
     return null;
   }
 
-  String? _validatePassword(String? value) {
-    if (value == null || value.isEmpty) return 'Enter your password';
+  String? _validateConfirmPassword(String? value) {
+    if (value == null || value.isEmpty) return 'Re-enter your password';
+    if (value != _passwordController.text) return 'Passwords do not match';
     return null;
   }
 
@@ -102,41 +86,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'SME-OS',
+                      'Set a new password',
                       textAlign: TextAlign.center,
-                      style: theme.textTheme.headlineMedium?.copyWith(
+                      style: theme.textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Sign in to your account',
+                      'Choose a new password for your SME-OS account.',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyMedium,
                     ),
                     const SizedBox(height: 32),
                     TextFormField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      autocorrect: false,
-                      enabled: !_isSubmitting,
-                      textInputAction: TextInputAction.next,
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.email_outlined),
-                      ),
-                      validator: _validateEmail,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
                       enabled: !_isSubmitting,
-                      textInputAction: TextInputAction.done,
-                      onFieldSubmitted: (_) => _signIn(),
+                      textInputAction: TextInputAction.next,
                       decoration: InputDecoration(
-                        labelText: 'Password',
+                        labelText: 'New password',
+                        helperText: 'At least 6 characters',
                         border: const OutlineInputBorder(),
                         prefixIcon: const Icon(Icons.lock_outline),
                         suffixIcon: IconButton(
@@ -155,12 +125,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       validator: _validatePassword,
                     ),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: _isSubmitting ? null : _goToForgotPassword,
-                        child: const Text('Forgot password?'),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _confirmPasswordController,
+                      obscureText: _obscurePassword,
+                      enabled: !_isSubmitting,
+                      textInputAction: TextInputAction.done,
+                      onFieldSubmitted: (_) => _updatePassword(),
+                      decoration: const InputDecoration(
+                        labelText: 'Confirm new password',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.lock_outline),
                       ),
+                      validator: _validateConfirmPassword,
                     ),
                     if (_errorMessage != null) ...[
                       const SizedBox(height: 16),
@@ -171,7 +148,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ],
                     const SizedBox(height: 24),
                     FilledButton(
-                      onPressed: _isSubmitting ? null : _signIn,
+                      onPressed: _isSubmitting ? null : _updatePassword,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         child: _isSubmitting
@@ -182,22 +159,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   strokeWidth: 2,
                                 ),
                               )
-                            : const Text('Sign in'),
+                            : const Text('Update password'),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          "Don't have an account?",
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                        TextButton(
-                          onPressed: _isSubmitting ? null : _goToSignup,
-                          child: const Text('Create one'),
-                        ),
-                      ],
                     ),
                   ],
                 ),

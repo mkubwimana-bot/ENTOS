@@ -10,6 +10,13 @@
 -- below if you like. Use ONLY synthetic (fake) credentials in development.
 --
 -- After running, log in to the app with v_dev_email / v_dev_password.
+--
+-- PASSWORD RESET / SIGNUP EMAILS:
+-- Supabase Auth rejects reserved domains such as @*.test when sending mail
+-- (error: email_address_invalid). SQL-created dev login still works, but
+-- resetPasswordForEmail and signUp API calls will fail for dev@smeos.test.
+-- To test in-app password reset, run tests/003_dev_email_for_password_reset.sql
+-- and point the dev user at a real inbox you control.
 -- ============================================================
 
 -- pgcrypto provides crypt()/gen_salt() used to hash the dev password.

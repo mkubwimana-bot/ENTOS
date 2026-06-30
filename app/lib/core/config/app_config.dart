@@ -17,4 +17,11 @@ class AppConfig {
   /// Whether both required Supabase values were provided at build time.
   static bool get isConfigured =>
       supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
+
+  /// Deep-link URL Supabase Auth redirects to after password-reset emails.
+  ///
+  /// Must be listed in Supabase Dashboard → Authentication → URL Configuration
+  /// → Redirect URLs, and must match the Android intent filter in
+  /// AndroidManifest.xml (scheme + host).
+  static const String authRedirectUrl = 'rw.entos.smeos://login-callback/';
 }
