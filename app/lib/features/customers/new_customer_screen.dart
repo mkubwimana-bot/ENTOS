@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/supabase/supabase_providers.dart';
+import '../../core/widgets/main_menu_nav_action.dart';
 
 class _TenantContext {
   const _TenantContext({required this.tenantId, required this.userId});
@@ -137,7 +138,10 @@ class _NewCustomerScreenState extends ConsumerState<NewCustomerScreen> {
   Widget build(BuildContext context) {
     final tenantAsync = ref.watch(newCustomerTenantProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('New Customer')),
+      appBar: AppBar(
+        title: const Text('New Customer'),
+        actions: const [MainMenuNavAction()],
+      ),
       body: tenantAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(

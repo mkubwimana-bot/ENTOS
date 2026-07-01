@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/supabase/supabase_providers.dart';
+import '../../core/widgets/main_menu_nav_action.dart';
 
 class _TenantContext {
   const _TenantContext({required this.tenantId});
@@ -237,7 +238,10 @@ class _NewProductScreenState extends ConsumerState<NewProductScreen> {
   Widget build(BuildContext context) {
     final lookupsAsync = ref.watch(newProductLookupsProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('New Product')),
+      appBar: AppBar(
+        title: const Text('New Product'),
+        actions: const [MainMenuNavAction()],
+      ),
       body: lookupsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(

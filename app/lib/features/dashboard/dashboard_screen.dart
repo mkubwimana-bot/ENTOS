@@ -2,20 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/format/money_format.dart';
-import '../../core/supabase/supabase_providers.dart';
-import '../customers/customers_screen.dart';
-import '../products/products_screen.dart';
-import '../sales/new_sale_screen.dart';
 import 'dashboard_models.dart';
 import 'dashboard_providers.dart';
 
-/// Main business screen after sign-in.
+/// Business metrics: today's sales, money owed, low stock, pending mobile.
 ///
-/// Reads four Supabase views (RLS-scoped to the user's tenant):
-/// - [vw_daily_sales] — today's sales total
-/// - [vw_customer_balances] — money owed by customers
-/// - [vw_low_stock] — products at or below reorder level
-/// - [vw_pending_mobile_transactions] — offline drafts awaiting sync
+/// Opened from [HomeScreen] via the Dashboard menu button — not shown at login.
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
@@ -27,22 +19,15 @@ class DashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final summaryAsync = ref.watch(dashboardSummaryProvider);
-    final client = ref.watch(supabaseClientProvider);
-    final email = client.auth.currentUser?.email;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('SME-OS'),
+        title: const Text('Dashboard'),
         actions: [
           IconButton(
             tooltip: 'Refresh',
             onPressed: () => _refresh(ref),
             icon: const Icon(Icons.refresh),
-          ),
-          IconButton(
-            tooltip: 'Sign out',
-            onPressed: () => client.auth.signOut(),
-            icon: const Icon(Icons.logout),
           ),
         ],
       ),
@@ -57,56 +42,7 @@ class DashboardScreen extends ConsumerWidget {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              if (email != null) ...[
-                Text(
-                  'Welcome back',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                Text(
-                  email,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 20),
-              ],
               _MetricGrid(summary: summary),
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const ProductsScreen(),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.inventory_2_outlined),
-                label: const Text('Open Product List'),
-              ),
-              const SizedBox(height: 12),
-              FilledButton.icon(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const CustomersScreen(),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.people_alt_outlined),
-                label: const Text('Open Customer List'),
-              ),
-              const SizedBox(height: 12),
-              FilledButton.icon(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const NewSaleScreen(),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.receipt_long_outlined),
-                label: const Text('New Sale'),
-              ),
               if (summary.lowStockProducts.isNotEmpty) ...[
                 const SizedBox(height: 24),
                 _LowStockSection(products: summary.lowStockProducts),

@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/format/money_format.dart';
 import '../../core/supabase/supabase_providers.dart';
+import '../../core/widgets/main_menu_nav_action.dart';
 
 class _SaleContext {
   const _SaleContext({
@@ -284,7 +285,10 @@ class _NewSaleScreenState extends ConsumerState<NewSaleScreen> {
   Widget build(BuildContext context) {
     final saleContextAsync = ref.watch(newSaleContextProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('New Sale')),
+      appBar: AppBar(
+        title: const Text('New Sale'),
+        actions: const [MainMenuNavAction()],
+      ),
       body: saleContextAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(

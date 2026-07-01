@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/format/money_format.dart';
 import '../../core/supabase/supabase_providers.dart';
+import '../../core/widgets/main_menu_nav_action.dart';
 import 'new_customer_screen.dart';
 
 class CustomerListItem {
@@ -11,6 +12,9 @@ class CustomerListItem {
     required this.partyName,
     required this.status,
     required this.openingBalance,
+    required this.totalInvoiced,
+    required this.totalPaid,
+    required this.balance,
     required this.creditLimit,
   });
 
@@ -18,27 +22,51 @@ class CustomerListItem {
   final String partyName;
   final String status;
   final double openingBalance;
+  final double totalInvoiced;
+  final double totalPaid;
+  final double balance;
   final double? creditLimit;
 }
 
 final customerListProvider = FutureProvider.autoDispose<List<CustomerListItem>>((
   ref,
 ) async {
-  final rows = await ref
-      .read(supabaseClientProvider)
-      .from('parties')
-      .select('party_code, party_name, status, opening_balance, customer_credit_limit')
-      .isFilter('deleted_at', null)
-      .order('party_name');
+  final client = ref.read(supabaseClientProvider);
+  final results = await Future.wait<dynamic>([
+    client
+        .from('vw_customer_balances')
+        .select(
+          'party_id, party_code, party_name, opening_balance, total_invoiced, total_paid, balance',
+        )
+        .order('party_name'),
+    client
+        .from('parties')
+        .select('id, status, customer_credit_limit')
+        .isFilter('deleted_at', null),
+  ]);
 
-  return (rows as List<dynamic>).map((row) {
+  final balanceRows = results[0] as List<dynamic>;
+  final partyRows = results[1] as List<dynamic>;
+
+  final partyMetaById = <String, Map<String, dynamic>>{};
+  for (final row in partyRows) {
     final map = row as Map<String, dynamic>;
+    partyMetaById[map['id'] as String] = map;
+  }
+
+  return balanceRows.map((row) {
+    final map = row as Map<String, dynamic>;
+    final partyId = map['party_id'] as String;
+    final meta = partyMetaById[partyId];
     return CustomerListItem(
       partyCode: map['party_code'] as String? ?? '',
       partyName: map['party_name'] as String? ?? 'Unnamed customer',
-      status: map['status'] as String? ?? 'unknown',
+      status: meta?['status'] as String? ?? 'unknown',
       openingBalance: (map['opening_balance'] as num?)?.toDouble() ?? 0,
-      creditLimit: (map['customer_credit_limit'] as num?)?.toDouble(),
+      totalInvoiced: (map['total_invoiced'] as num?)?.toDouble() ?? 0,
+      totalPaid: (map['total_paid'] as num?)?.toDouble() ?? 0,
+      balance: (map['balance'] as num?)?.toDouble() ?? 0,
+      creditLimit: (meta?['customer_credit_limit'] as num?)?.toDouble(),
     );
   }).toList();
 });
@@ -55,7 +83,10 @@ class CustomersScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final customersAsync = ref.watch(customerListProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Customers')),
+      appBar: AppBar(
+        title: const Text('Customers'),
+        actions: const [MainMenuNavAction()],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
           final created = await Navigator.of(context).push<bool>(
@@ -113,16 +144,21 @@ class CustomersScreen extends ConsumerWidget {
                         subtitle: Text(
                           '${customer.partyCode} • ${customer.status}',
                         ),
+                        isThreeLine: true,
                         trailing: Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text(
-                              'Owed: ${formatRwf(customer.openingBalance)}',
+                              'Owed: ${formatRwf(customer.balance)}',
                               style: Theme.of(context).textTheme.labelLarge,
                             ),
                             Text(
-                              'Limit: ${customer.creditLimit == null ? '-' : formatRwf(customer.creditLimit!)}',
+                              'Opening ${formatRwf(customer.openingBalance)}',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                            Text(
+                              'Invoiced ${formatRwf(customer.totalInvoiced)} · Paid ${formatRwf(customer.totalPaid)}',
                               style: Theme.of(context).textTheme.bodySmall,
                             ),
                           ],

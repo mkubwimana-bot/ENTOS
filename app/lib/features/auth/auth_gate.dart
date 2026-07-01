@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/supabase/supabase_providers.dart';
-import '../dashboard/dashboard_screen.dart';
+import '../home/home_screen.dart';
 import 'login_screen.dart';
 import 'reset_password_screen.dart';
 
@@ -40,6 +40,6 @@ class AuthGate extends ConsumerWidget {
     if (session == null) {
       return const LoginScreen();
     }
-    return const DashboardScreen();
+    return const HomeScreen();
   }
 }
