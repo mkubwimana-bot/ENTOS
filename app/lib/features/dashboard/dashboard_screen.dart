@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/format/money_format.dart';
 import '../../core/supabase/supabase_providers.dart';
+import '../customers/customers_screen.dart';
 import '../products/products_screen.dart';
 import 'dashboard_models.dart';
 import 'dashboard_providers.dart';
@@ -80,6 +81,18 @@ class DashboardScreen extends ConsumerWidget {
                 },
                 icon: const Icon(Icons.inventory_2_outlined),
                 label: const Text('Open Product List'),
+              ),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const CustomersScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.people_alt_outlined),
+                label: const Text('Open Customer List'),
               ),
               if (summary.lowStockProducts.isNotEmpty) ...[
                 const SizedBox(height: 24),
