@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/format/money_format.dart';
 import '../../core/supabase/supabase_providers.dart';
+import 'new_customer_screen.dart';
 
 class CustomerListItem {
   const CustomerListItem({
@@ -55,6 +56,18 @@ class CustomersScreen extends ConsumerWidget {
     final customersAsync = ref.watch(customerListProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Customers')),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          final created = await Navigator.of(context).push<bool>(
+            MaterialPageRoute<bool>(builder: (_) => const NewCustomerScreen()),
+          );
+          if (created == true) {
+            ref.invalidate(customerListProvider);
+          }
+        },
+        icon: const Icon(Icons.add),
+        label: const Text('New Customer'),
+      ),
       body: customersAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(
