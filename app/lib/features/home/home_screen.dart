@@ -10,6 +10,7 @@ import '../payments/record_payment_screen.dart';
 import '../products/products_screen.dart';
 import '../reports/reports_screen.dart';
 import '../sales/new_sale_screen.dart';
+import '../sales/quick_sale_screen.dart';
 
 /// Main menu after sign-in. Navigation hub for all business screens.
 ///
@@ -99,6 +100,21 @@ class HomeScreen extends ConsumerWidget {
             },
             icon: const Icon(Icons.receipt_long_outlined),
             label: const Text('New Sale'),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: () async {
+              final recorded = await Navigator.of(context).push<bool>(
+                MaterialPageRoute<bool>(
+                  builder: (_) => const QuickSaleScreen(),
+                ),
+              );
+              if (recorded == true) {
+                ref.invalidate(dashboardSummaryProvider);
+              }
+            },
+            icon: const Icon(Icons.bolt_outlined),
+            label: const Text('Mobile Quick Sale'),
           ),
           const SizedBox(height: 12),
           FilledButton.icon(
