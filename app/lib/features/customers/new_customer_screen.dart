@@ -47,6 +47,7 @@ class _NewCustomerScreenState extends ConsumerState<NewCustomerScreen> {
   final _phoneController = TextEditingController();
   final _openingBalanceController = TextEditingController();
   final _creditLimitController = TextEditingController();
+  final _creditTermsController = TextEditingController(text: '30');
 
   bool _isSubmitting = false;
   String? _errorMessage;
@@ -58,6 +59,7 @@ class _NewCustomerScreenState extends ConsumerState<NewCustomerScreen> {
     _phoneController.dispose();
     _openingBalanceController.dispose();
     _creditLimitController.dispose();
+    _creditTermsController.dispose();
     super.dispose();
   }
 
@@ -69,6 +71,7 @@ class _NewCustomerScreenState extends ConsumerState<NewCustomerScreen> {
     try {
       final openingBalanceText = _openingBalanceController.text.trim();
       final creditLimitText = _creditLimitController.text.trim();
+      final creditTermsText = _creditTermsController.text.trim();
 
       final insertedRows = await ref.read(supabaseClientProvider).from('parties').insert({
         'tenant_id': tenant.tenantId,
@@ -78,6 +81,8 @@ class _NewCustomerScreenState extends ConsumerState<NewCustomerScreen> {
         'primary_phone': _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
         'opening_balance': openingBalanceText.isEmpty ? 0 : double.parse(openingBalanceText),
         'customer_credit_limit': creditLimitText.isEmpty ? null : double.parse(creditLimitText),
+        'customer_credit_terms_days':
+            creditTermsText.isEmpty ? 30 : int.parse(creditTermsText),
         'status': 'active',
         'is_credit_eligible': true,
         'created_by': tenant.userId,
@@ -131,6 +136,15 @@ class _NewCustomerScreenState extends ConsumerState<NewCustomerScreen> {
     final parsed = double.tryParse(text);
     if (parsed == null) return 'Enter a valid number';
     if (parsed < 0) return 'Amount must be zero or greater';
+    return null;
+  }
+
+  String? _validateCreditTerms(String? value) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) return 'Enter credit terms (days)';
+    final parsed = int.tryParse(text);
+    if (parsed == null) return 'Enter a whole number of days';
+    if (parsed < 0) return 'Days must be zero or greater';
     return null;
   }
 
@@ -219,6 +233,18 @@ class _NewCustomerScreenState extends ConsumerState<NewCustomerScreen> {
                       border: OutlineInputBorder(),
                     ),
                     validator: _validateOptionalMoney,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _creditTermsController,
+                    enabled: !_isSubmitting,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Credit terms (days)',
+                      helperText: 'Used to set due date on credit sales',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: _validateCreditTerms,
                   ),
                   if (_errorMessage != null) ...[
                     const SizedBox(height: 12),

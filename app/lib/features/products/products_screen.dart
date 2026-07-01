@@ -4,10 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/format/money_format.dart';
 import '../../core/supabase/supabase_providers.dart';
 import '../../core/widgets/main_menu_nav_action.dart';
+import 'edit_product_screen.dart';
 import 'new_product_screen.dart';
 
 class ProductListItem {
   const ProductListItem({
+    required this.productId,
     required this.productCode,
     required this.productName,
     required this.sellingPrice,
@@ -15,6 +17,7 @@ class ProductListItem {
     required this.isInventoryTracked,
   });
 
+  final String productId;
   final String productCode;
   final String productName;
   final double sellingPrice;
@@ -28,12 +31,13 @@ final productListProvider = FutureProvider.autoDispose<List<ProductListItem>>((
   final rows = await ref
       .read(supabaseClientProvider)
       .from('products')
-      .select('product_code, product_name, selling_price, status, is_inventory_tracked')
+      .select('id, product_code, product_name, selling_price, status, is_inventory_tracked')
       .order('product_name');
 
   return (rows as List<dynamic>).map((row) {
     final map = row as Map<String, dynamic>;
     return ProductListItem(
+      productId: map['id'] as String,
       productCode: map['product_code'] as String? ?? '',
       productName: map['product_name'] as String? ?? 'Unnamed product',
       sellingPrice: (map['selling_price'] as num?)?.toDouble() ?? 0,
@@ -120,6 +124,18 @@ class ProductsScreen extends ConsumerWidget {
                           formatRwf(product.sellingPrice),
                           style: Theme.of(context).textTheme.titleSmall,
                         ),
+                        onTap: () async {
+                          final updated = await Navigator.of(context).push<bool>(
+                            MaterialPageRoute<bool>(
+                              builder: (_) => EditProductScreen(
+                                productId: product.productId,
+                              ),
+                            ),
+                          );
+                          if (updated == true) {
+                            ref.invalidate(productListProvider);
+                          }
+                        },
                       ),
                     );
                   },

@@ -4,10 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/format/money_format.dart';
 import '../../core/supabase/supabase_providers.dart';
 import '../../core/widgets/main_menu_nav_action.dart';
+import 'edit_customer_screen.dart';
 import 'new_customer_screen.dart';
 
 class CustomerListItem {
   const CustomerListItem({
+    required this.partyId,
     required this.partyCode,
     required this.partyName,
     required this.status,
@@ -18,6 +20,7 @@ class CustomerListItem {
     required this.creditLimit,
   });
 
+  final String partyId;
   final String partyCode;
   final String partyName;
   final String status;
@@ -59,6 +62,7 @@ final customerListProvider = FutureProvider.autoDispose<List<CustomerListItem>>(
     final partyId = map['party_id'] as String;
     final meta = partyMetaById[partyId];
     return CustomerListItem(
+      partyId: partyId,
       partyCode: map['party_code'] as String? ?? '',
       partyName: map['party_name'] as String? ?? 'Unnamed customer',
       status: meta?['status'] as String? ?? 'unknown',
@@ -163,6 +167,18 @@ class CustomersScreen extends ConsumerWidget {
                             ),
                           ],
                         ),
+                        onTap: () async {
+                          final updated = await Navigator.of(context).push<bool>(
+                            MaterialPageRoute<bool>(
+                              builder: (_) => EditCustomerScreen(
+                                partyId: customer.partyId,
+                              ),
+                            ),
+                          );
+                          if (updated == true) {
+                            ref.invalidate(customerListProvider);
+                          }
+                        },
                       ),
                     );
                   },
