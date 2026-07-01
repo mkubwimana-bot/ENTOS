@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/format/money_format.dart';
 import '../../core/supabase/supabase_providers.dart';
+import 'new_product_screen.dart';
 
 class ProductListItem {
   const ProductListItem({
@@ -54,6 +55,18 @@ class ProductsScreen extends ConsumerWidget {
     final productsAsync = ref.watch(productListProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Products')),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          final created = await Navigator.of(context).push<bool>(
+            MaterialPageRoute<bool>(builder: (_) => const NewProductScreen()),
+          );
+          if (created == true) {
+            ref.invalidate(productListProvider);
+          }
+        },
+        icon: const Icon(Icons.add),
+        label: const Text('New Product'),
+      ),
       body: productsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(
