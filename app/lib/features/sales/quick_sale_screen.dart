@@ -1,10 +1,14 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/format/money_format.dart';
 import '../../core/supabase/supabase_providers.dart';
 import '../../core/widgets/main_menu_nav_action.dart';
+import 'offline_sale_queue.dart';
 
 class _QuickSaleContext {
   const _QuickSaleContext({
@@ -22,6 +26,30 @@ class _QuickSaleContext {
   final String warehouseId;
   final List<_QuickSaleProduct> products;
   final List<_QuickSaleCustomer> customers;
+
+  Map<String, dynamic> toJson() => {
+        'tenant_id': tenantId,
+        'user_id': userId,
+        'branch_id': branchId,
+        'warehouse_id': warehouseId,
+        'products': products.map((p) => p.toJson()).toList(),
+        'customers': customers.map((c) => c.toJson()).toList(),
+      };
+
+  factory _QuickSaleContext.fromJson(Map<String, dynamic> json) {
+    return _QuickSaleContext(
+      tenantId: json['tenant_id'] as String,
+      userId: json['user_id'] as String,
+      branchId: json['branch_id'] as String,
+      warehouseId: json['warehouse_id'] as String,
+      products: (json['products'] as List<dynamic>? ?? [])
+          .map((e) => _QuickSaleProduct.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      customers: (json['customers'] as List<dynamic>? ?? [])
+          .map((e) => _QuickSaleCustomer.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
 }
 
 class _QuickSaleProduct {
@@ -40,6 +68,26 @@ class _QuickSaleProduct {
   final String baseUnitId;
   final bool isInventoryTracked;
   final double? costPrice;
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'selling_price': sellingPrice,
+        'base_unit_id': baseUnitId,
+        'is_inventory_tracked': isInventoryTracked,
+        'cost_price': costPrice,
+      };
+
+  factory _QuickSaleProduct.fromJson(Map<String, dynamic> json) {
+    return _QuickSaleProduct(
+      id: json['id'] as String,
+      name: json['name'] as String? ?? 'Unnamed product',
+      sellingPrice: (json['selling_price'] as num?)?.toDouble() ?? 0,
+      baseUnitId: json['base_unit_id'] as String,
+      isInventoryTracked: json['is_inventory_tracked'] as bool? ?? false,
+      costPrice: (json['cost_price'] as num?)?.toDouble(),
+    );
+  }
 }
 
 class _QuickSaleCustomer {
@@ -47,6 +95,40 @@ class _QuickSaleCustomer {
 
   final String id;
   final String name;
+
+  Map<String, dynamic> toJson() => {'id': id, 'name': name};
+
+  factory _QuickSaleCustomer.fromJson(Map<String, dynamic> json) {
+    return _QuickSaleCustomer(
+      id: json['id'] as String,
+      name: json['name'] as String? ?? 'Unnamed customer',
+    );
+  }
+}
+
+/// Caches the last successfully loaded Quick Sale setup so the screen can open
+/// while offline. Backed by encrypted on-device storage.
+class _QuickSaleContextCache {
+  const _QuickSaleContextCache();
+
+  static const _storage = FlutterSecureStorage();
+  static const _key = 'sme_os.offline.quicksale_context';
+
+  Future<void> save(_QuickSaleContext context) async {
+    await _storage.write(key: _key, value: jsonEncode(context.toJson()));
+  }
+
+  Future<_QuickSaleContext?> load() async {
+    final raw = await _storage.read(key: _key);
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      return _QuickSaleContext.fromJson(
+        jsonDecode(raw) as Map<String, dynamic>,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
 }
 
 /// One product line captured in the quick-sale cart. Owns its own price
@@ -70,91 +152,108 @@ class _CartLine {
 final quickSaleContextProvider =
     FutureProvider.autoDispose<_QuickSaleContext>((ref) async {
   final client = ref.read(supabaseClientProvider);
+  const cache = _QuickSaleContextCache();
   final userId = client.auth.currentUser?.id;
   if (userId == null) throw Exception('You must be signed in.');
 
-  final membershipRows = await client
-      .from('user_tenants')
-      .select('tenant_id, default_branch_id, membership_status')
-      .eq('user_id', userId)
-      .eq('membership_status', 'active')
-      .limit(1);
-  if ((membershipRows as List).isEmpty) {
-    throw Exception('No active tenant membership found for this user.');
-  }
+  try {
+    final membershipRows = await client
+        .from('user_tenants')
+        .select('tenant_id, default_branch_id, membership_status')
+        .eq('user_id', userId)
+        .eq('membership_status', 'active')
+        .limit(1);
+    if ((membershipRows as List).isEmpty) {
+      throw Exception('No active tenant membership found for this user.');
+    }
 
-  final membership = membershipRows.first;
-  final tenantId = membership['tenant_id'] as String;
-  var branchId = membership['default_branch_id'] as String?;
+    final membership = membershipRows.first;
+    final tenantId = membership['tenant_id'] as String;
+    var branchId = membership['default_branch_id'] as String?;
 
-  if (branchId == null) {
-    final branchRows = await client
-        .from('branches')
+    if (branchId == null) {
+      final branchRows = await client
+          .from('branches')
+          .select('id')
+          .eq('tenant_id', tenantId)
+          .eq('is_default', true)
+          .limit(1);
+      if ((branchRows as List).isEmpty) {
+        throw Exception('No default branch found for tenant.');
+      }
+      branchId = branchRows.first['id'] as String;
+    }
+
+    final warehouseRows = await client
+        .from('warehouses')
         .select('id')
         .eq('tenant_id', tenantId)
+        .eq('branch_id', branchId)
         .eq('is_default', true)
         .limit(1);
-    if ((branchRows as List).isEmpty) {
-      throw Exception('No default branch found for tenant.');
+    if ((warehouseRows as List).isEmpty) {
+      throw Exception('No default warehouse found for branch.');
     }
-    branchId = branchRows.first['id'] as String;
-  }
+    final warehouseId = warehouseRows.first['id'] as String;
 
-  final warehouseRows = await client
-      .from('warehouses')
-      .select('id')
-      .eq('tenant_id', tenantId)
-      .eq('branch_id', branchId)
-      .eq('is_default', true)
-      .limit(1);
-  if ((warehouseRows as List).isEmpty) {
-    throw Exception('No default warehouse found for branch.');
-  }
-  final warehouseId = warehouseRows.first['id'] as String;
+    final results = await Future.wait<dynamic>([
+      client
+          .from('products')
+          .select(
+              'id, product_name, selling_price, base_unit_id, is_inventory_tracked, cost_price')
+          .eq('status', 'active')
+          .order('product_name'),
+      client
+          .from('parties')
+          .select('id, party_name')
+          .eq('status', 'active')
+          .isFilter('deleted_at', null)
+          .order('party_name'),
+    ]);
 
-  final results = await Future.wait<dynamic>([
-    client
-        .from('products')
-        .select(
-            'id, product_name, selling_price, base_unit_id, is_inventory_tracked, cost_price')
-        .eq('status', 'active')
-        .order('product_name'),
-    client
-        .from('parties')
-        .select('id, party_name')
-        .eq('status', 'active')
-        .isFilter('deleted_at', null)
-        .order('party_name'),
-  ]);
+    final products = (results[0] as List<dynamic>).map((row) {
+      final map = row as Map<String, dynamic>;
+      return _QuickSaleProduct(
+        id: map['id'] as String,
+        name: map['product_name'] as String? ?? 'Unnamed product',
+        sellingPrice: (map['selling_price'] as num?)?.toDouble() ?? 0,
+        baseUnitId: map['base_unit_id'] as String,
+        isInventoryTracked: map['is_inventory_tracked'] as bool? ?? false,
+        costPrice: (map['cost_price'] as num?)?.toDouble(),
+      );
+    }).toList();
 
-  final products = (results[0] as List<dynamic>).map((row) {
-    final map = row as Map<String, dynamic>;
-    return _QuickSaleProduct(
-      id: map['id'] as String,
-      name: map['product_name'] as String? ?? 'Unnamed product',
-      sellingPrice: (map['selling_price'] as num?)?.toDouble() ?? 0,
-      baseUnitId: map['base_unit_id'] as String,
-      isInventoryTracked: map['is_inventory_tracked'] as bool? ?? false,
-      costPrice: (map['cost_price'] as num?)?.toDouble(),
+    final customers = (results[1] as List<dynamic>).map((row) {
+      final map = row as Map<String, dynamic>;
+      return _QuickSaleCustomer(
+        id: map['id'] as String,
+        name: map['party_name'] as String? ?? 'Unnamed customer',
+      );
+    }).toList();
+
+    final context = _QuickSaleContext(
+      tenantId: tenantId,
+      userId: userId,
+      branchId: branchId,
+      warehouseId: warehouseId,
+      products: products,
+      customers: customers,
     );
-  }).toList();
 
-  final customers = (results[1] as List<dynamic>).map((row) {
-    final map = row as Map<String, dynamic>;
-    return _QuickSaleCustomer(
-      id: map['id'] as String,
-      name: map['party_name'] as String? ?? 'Unnamed customer',
-    );
-  }).toList();
-
-  return _QuickSaleContext(
-    tenantId: tenantId,
-    userId: userId,
-    branchId: branchId,
-    warehouseId: warehouseId,
-    products: products,
-    customers: customers,
-  );
+    // Cache the setup so Quick Sale can still be opened while offline.
+    await cache.save(context);
+    return context;
+  } catch (error) {
+    if (isOfflineError(error)) {
+      final cached = await cache.load();
+      if (cached != null) return cached;
+      throw Exception(
+        'You are offline and no saved products are available yet. '
+        'Open Quick Sale once while online to enable offline sales.',
+      );
+    }
+    rethrow;
+  }
 });
 
 class QuickSaleScreen extends ConsumerStatefulWidget {
@@ -227,105 +326,89 @@ class _QuickSaleScreenState extends ConsumerState<QuickSaleScreen> {
       }
     }
 
-    final total = _grandTotal;
     final client = ref.read(supabaseClientProvider);
+    final clientReferenceId =
+        OfflineSaleQueue.newClientReferenceId(saleContext.userId);
+    final capturedAt = DateTime.now().toUtc();
+
+    final lines = _cart
+        .map((line) => {
+              'product_id': line.product.id,
+              'quantity': line.quantity.toDouble(),
+              'unit_price': line.unitPrice,
+            })
+        .toList();
+
+    const String? notes = null;
 
     setState(() => _isSubmitting = true);
     try {
-      final invoiceNumber = await client.rpc(
-        'get_next_document_number',
+      await client.rpc(
+        'post_sale_draft',
         params: {
           'target_tenant_id': saleContext.tenantId,
           'target_branch_id': saleContext.branchId,
-          'target_sequence_code': 'invoice',
+          'target_warehouse_id': saleContext.warehouseId,
+          'p_client_reference_id': clientReferenceId,
+          'p_sale_type': _saleType,
+          'p_party_id': _selectedCustomerId,
+          'p_notes': notes,
+          'p_captured_at': capturedAt.toIso8601String(),
+          'p_lines': lines,
         },
-      ) as String;
-
-      final invoiceRows = await client.from('invoices').insert({
-        'tenant_id': saleContext.tenantId,
-        'branch_id': saleContext.branchId,
-        'warehouse_id': saleContext.warehouseId,
-        'invoice_number': invoiceNumber,
-        'invoice_date': DateTime.now().toIso8601String().substring(0, 10),
-        'party_id': _selectedCustomerId,
-        'sale_type': _saleType,
-        'status': 'posted',
-        'subtotal_amount': total,
-        'discount_amount': 0,
-        'tax_amount': 0,
-        'total_amount': total,
-        'paid_amount': _saleType == 'credit' ? 0 : total,
-        'balance_amount': _saleType == 'credit' ? total : 0,
-        'created_by': saleContext.userId,
-        'posted_at': DateTime.now().toUtc().toIso8601String(),
-      }).select('id').limit(1);
-
-      final invoiceId = (invoiceRows as List).first['id'] as String;
-
-      final lineRows = <Map<String, dynamic>>[];
-      final movementRows = <Map<String, dynamic>>[];
-      var lineNumber = 1;
-      for (final line in _cart) {
-        final product = line.product;
-        final quantity = line.quantity.toDouble();
-        final unitPrice = line.unitPrice;
-        final lineTotal = quantity * unitPrice;
-
-        lineRows.add({
-          'tenant_id': saleContext.tenantId,
-          'invoice_id': invoiceId,
-          'line_number': lineNumber,
-          'product_id': product.id,
-          'description': product.name,
-          'quantity': quantity,
-          'unit_id': product.baseUnitId,
-          'unit_price': unitPrice,
-          'discount_amount': 0,
-          'tax_amount': 0,
-          'line_total': lineTotal,
-          'cost_price_snapshot': product.costPrice,
-          'warehouse_id': saleContext.warehouseId,
-          'created_by': saleContext.userId,
-        });
-
-        if (product.isInventoryTracked) {
-          movementRows.add({
-            'tenant_id': saleContext.tenantId,
-            'branch_id': saleContext.branchId,
-            'warehouse_id': saleContext.warehouseId,
-            'product_id': product.id,
-            'movement_date': DateTime.now().toIso8601String().substring(0, 10),
-            'movement_type': 'sale',
-            'quantity_in': 0,
-            'quantity_out': quantity,
-            'unit_cost': product.costPrice,
-            'total_cost':
-                product.costPrice == null ? null : product.costPrice! * quantity,
-            'source_table': 'invoices',
-            'source_id': invoiceId,
-            'reference_number': invoiceNumber,
-            'reason': 'Quick sale invoice',
-            'created_by': saleContext.userId,
-          });
-        }
-        lineNumber++;
-      }
-
-      await client.from('invoice_lines').insert(lineRows);
-      if (movementRows.isNotEmpty) {
-        await client.from('stock_movements').insert(movementRows);
-      }
+      );
 
       if (mounted) Navigator.of(context).pop(true);
     } on PostgrestException catch (e) {
       if (mounted) setState(() => _errorMessage = e.message);
-    } catch (_) {
+    } catch (error) {
+      if (isOfflineError(error)) {
+        await _queueOffline(saleContext, clientReferenceId, capturedAt, notes);
+        return;
+      }
       if (mounted) {
         setState(() => _errorMessage = 'Could not save sale. Please try again.');
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+
+  Future<void> _queueOffline(
+    _QuickSaleContext saleContext,
+    String clientReferenceId,
+    DateTime capturedAt,
+    String? notes,
+  ) async {
+    final pending = PendingSale(
+      clientReferenceId: clientReferenceId,
+      tenantId: saleContext.tenantId,
+      branchId: saleContext.branchId,
+      warehouseId: saleContext.warehouseId,
+      saleType: _saleType,
+      partyId: _selectedCustomerId,
+      notes: notes,
+      capturedAt: capturedAt,
+      lines: _cart
+          .map((line) => PendingSaleLine(
+                productId: line.product.id,
+                productName: line.product.name,
+                quantity: line.quantity.toDouble(),
+                unitPrice: line.unitPrice,
+              ))
+          .toList(),
+    );
+
+    await ref.read(offlineSaleQueueProvider).add(pending);
+    ref.invalidate(offlinePendingCountProvider);
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Saved offline. Sync it from Sync Status when back online.'),
+      ),
+    );
+    Navigator.of(context).pop(true);
   }
 
   @override

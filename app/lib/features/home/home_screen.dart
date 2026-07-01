@@ -10,7 +10,9 @@ import '../payments/record_payment_screen.dart';
 import '../products/products_screen.dart';
 import '../reports/reports_screen.dart';
 import '../sales/new_sale_screen.dart';
+import '../sales/offline_sale_queue.dart';
 import '../sales/quick_sale_screen.dart';
+import '../sync/sync_status_screen.dart';
 
 /// Main menu after sign-in. Navigation hub for all business screens.
 ///
@@ -155,8 +157,33 @@ class HomeScreen extends ConsumerWidget {
             icon: const Icon(Icons.bar_chart_outlined),
             label: const Text('Reports'),
           ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: () async {
+              await Navigator.of(context).push<void>(
+                MaterialPageRoute<void>(
+                  builder: (_) => const SyncStatusScreen(),
+                ),
+              );
+              ref.invalidate(offlinePendingCountProvider);
+              ref.invalidate(dashboardSummaryProvider);
+            },
+            icon: const Icon(Icons.sync_outlined),
+            label: const _SyncStatusLabel(),
+          ),
         ],
       ),
     );
+  }
+}
+
+/// Shows "Sync Status" with a count of locally queued (unsynced) sales.
+class _SyncStatusLabel extends ConsumerWidget {
+  const _SyncStatusLabel();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final count = ref.watch(offlinePendingCountProvider).asData?.value ?? 0;
+    return Text(count > 0 ? 'Sync Status ($count)' : 'Sync Status');
   }
 }
