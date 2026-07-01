@@ -254,15 +254,19 @@ begin
     'Development Customer',
     'individual',
     '+250780000001',
-    100000,
+    500000,
     30,
     'good',
     true,
-    0,
+    100000,
     'active',
     v_auth_user_id
   )
-  on conflict (tenant_id, party_code) do nothing;
+  on conflict (tenant_id, party_code) do update
+  set
+    opening_balance = excluded.opening_balance,
+    customer_credit_limit = excluded.customer_credit_limit,
+    status = excluded.status;
 
   insert into public.party_type_links (
     tenant_id,
