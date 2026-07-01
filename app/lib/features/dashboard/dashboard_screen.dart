@@ -5,6 +5,7 @@ import '../../core/format/money_format.dart';
 import '../../core/supabase/supabase_providers.dart';
 import '../customers/customers_screen.dart';
 import '../products/products_screen.dart';
+import '../sales/new_sale_screen.dart';
 import 'dashboard_models.dart';
 import 'dashboard_providers.dart';
 
@@ -93,6 +94,18 @@ class DashboardScreen extends ConsumerWidget {
                 },
                 icon: const Icon(Icons.people_alt_outlined),
                 label: const Text('Open Customer List'),
+              ),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const NewSaleScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.receipt_long_outlined),
+                label: const Text('New Sale'),
               ),
               if (summary.lowStockProducts.isNotEmpty) ...[
                 const SizedBox(height: 24),
