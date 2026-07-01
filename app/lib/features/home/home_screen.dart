@@ -8,6 +8,7 @@ import '../dashboard/dashboard_screen.dart';
 import '../inventory/current_stock_screen.dart';
 import '../payments/record_payment_screen.dart';
 import '../products/products_screen.dart';
+import '../profile/profile_screen.dart';
 import '../reports/reports_screen.dart';
 import '../sales/new_sale_screen.dart';
 import '../sales/offline_sale_queue.dart';
@@ -76,6 +77,18 @@ class HomeScreen extends ConsumerWidget {
             },
             icon: const Icon(Icons.storefront_outlined),
             label: const Text('Business Setup'),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const ProfileScreen(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.person_outline),
+            label: const Text('My Profile'),
           ),
           const SizedBox(height: 12),
           FilledButton.icon(
