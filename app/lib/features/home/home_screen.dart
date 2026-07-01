@@ -7,7 +7,11 @@ import '../dashboard/dashboard_providers.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../inventory/current_stock_screen.dart';
 import '../inventory/low_stock_screen.dart';
+import '../inventory/stock_adjustment_screen.dart';
+import '../inventory/stock_check_screen.dart';
+import '../inventory/stock_movement_history_screen.dart';
 import '../payments/mobile_payment_screen.dart';
+import '../payments/payments_list_screen.dart';
 import '../payments/record_payment_screen.dart';
 import '../products/products_screen.dart';
 import '../profile/profile_screen.dart';
@@ -15,9 +19,11 @@ import '../reports/reports_screen.dart';
 import '../sales/new_sale_screen.dart';
 import '../sales/offline_sale_queue.dart';
 import '../sales/quick_sale_screen.dart';
+import '../sales/sales_list_screen.dart';
 import '../settings/business_setup_screen.dart';
 import '../settings/subscription_status_screen.dart';
 import '../sync/offline_auto_sync.dart';
+import '../sync/sync_conflict_review_screen.dart';
 import '../sync/sync_status_screen.dart';
 
 /// Main menu after sign-in. Navigation hub for all business screens.
@@ -169,6 +175,18 @@ class HomeScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           FilledButton.icon(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const SalesListScreen(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.list_alt_outlined),
+            label: const Text('Sales List'),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
             onPressed: () async {
               final recorded = await Navigator.of(context).push<bool>(
                 MaterialPageRoute<bool>(
@@ -181,6 +199,18 @@ class HomeScreen extends ConsumerWidget {
             },
             icon: const Icon(Icons.payments_outlined),
             label: const Text('Record Payment'),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const PaymentsListScreen(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.receipt_outlined),
+            label: const Text('Payments List'),
           ),
           const SizedBox(height: 12),
           FilledButton.icon(
@@ -214,6 +244,45 @@ class HomeScreen extends ConsumerWidget {
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(
+                  builder: (_) => const StockCheckScreen(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.search_outlined),
+            label: const Text('Stock Check'),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: () async {
+              final adjusted = await Navigator.of(context).push<bool>(
+                MaterialPageRoute<bool>(
+                  builder: (_) => const StockAdjustmentScreen(),
+                ),
+              );
+              if (adjusted == true) {
+                ref.invalidate(dashboardSummaryProvider);
+              }
+            },
+            icon: const Icon(Icons.tune_outlined),
+            label: const Text('Stock Adjustment'),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const StockMovementHistoryScreen(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.history_outlined),
+            label: const Text('Stock Movements'),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
                   builder: (_) => const LowStockScreen(),
                 ),
               );
@@ -238,6 +307,19 @@ class HomeScreen extends ConsumerWidget {
             onPressed: () async {
               await Navigator.of(context).push<void>(
                 MaterialPageRoute<void>(
+                  builder: (_) => const SyncConflictReviewScreen(),
+                ),
+              );
+              ref.invalidate(syncReviewIssueCountProvider);
+            },
+            icon: const Icon(Icons.rule_folder_outlined),
+            label: const _SyncReviewLabel(),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: () async {
+              await Navigator.of(context).push<void>(
+                MaterialPageRoute<void>(
                   builder: (_) => const SyncStatusScreen(),
                 ),
               );
@@ -251,6 +333,17 @@ class HomeScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+}
+
+/// Shows "Sync Review" with a count of open server-side issues.
+class _SyncReviewLabel extends ConsumerWidget {
+  const _SyncReviewLabel();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final count = ref.watch(syncReviewIssueCountProvider).asData?.value ?? 0;
+    return Text(count > 0 ? 'Sync Review ($count)' : 'Sync Review');
   }
 }
 

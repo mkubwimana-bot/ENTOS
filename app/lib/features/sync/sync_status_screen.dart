@@ -6,6 +6,7 @@ import '../../core/supabase/supabase_providers.dart';
 import '../../core/widgets/main_menu_nav_action.dart';
 import '../sales/offline_sale_queue.dart';
 import 'offline_sync_service.dart';
+import 'sync_conflict_review_screen.dart';
 
 class SyncStatusScreen extends ConsumerStatefulWidget {
   const SyncStatusScreen({super.key});
@@ -137,6 +138,8 @@ class _SyncStatusScreenState extends ConsumerState<SyncStatusScreen> {
                   else
                     ..._pending.map(_buildPendingCard),
                   const Divider(height: 32),
+                  _ServerReviewSection(),
+                  const Divider(height: 32),
                   _ServerPendingSection(),
                 ],
               ),
@@ -201,6 +204,52 @@ class _SyncStatusScreenState extends ConsumerState<SyncStatusScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Link to server-side conflict and failed-draft review.
+class _ServerReviewSection extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final issueCountAsync = ref.watch(syncReviewIssueCountProvider);
+    final issueCount = issueCountAsync.asData?.value ?? 0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Server sync issues',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Open conflicts and failed drafts already on the server.',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+        ),
+        const SizedBox(height: 8),
+        FilledButton.tonalIcon(
+          onPressed: () async {
+            await Navigator.of(context).push<void>(
+              MaterialPageRoute<void>(
+                builder: (_) => const SyncConflictReviewScreen(),
+              ),
+            );
+            ref.invalidate(syncReviewIssueCountProvider);
+            ref.invalidate(syncReviewDataProvider);
+          },
+          icon: Icon(
+            issueCount > 0 ? Icons.warning_amber_outlined : Icons.rule_folder_outlined,
+          ),
+          label: Text(
+            issueCount > 0
+                ? 'Review $issueCount issue(s)'
+                : 'Open sync review',
+          ),
+        ),
+      ],
     );
   }
 }
