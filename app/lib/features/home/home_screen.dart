@@ -6,6 +6,7 @@ import '../customers/customers_screen.dart';
 import '../dashboard/dashboard_providers.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../inventory/current_stock_screen.dart';
+import '../payments/mobile_payment_screen.dart';
 import '../payments/record_payment_screen.dart';
 import '../products/products_screen.dart';
 import '../profile/profile_screen.dart';
@@ -158,6 +159,21 @@ class HomeScreen extends ConsumerWidget {
             },
             icon: const Icon(Icons.payments_outlined),
             label: const Text('Record Payment'),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: () async {
+              final recorded = await Navigator.of(context).push<bool>(
+                MaterialPageRoute<bool>(
+                  builder: (_) => const MobilePaymentScreen(),
+                ),
+              );
+              if (recorded == true) {
+                ref.invalidate(dashboardSummaryProvider);
+              }
+            },
+            icon: const Icon(Icons.smartphone_outlined),
+            label: const Text('Mobile Payment'),
           ),
           const SizedBox(height: 12),
           FilledButton.icon(
