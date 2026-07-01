@@ -51,13 +51,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     setState(() => _isSubmitting = true);
     try {
-      await ref
+      final authResponse = await ref
           .read(supabaseClientProvider)
           .auth
           .signInWithPassword(
             email: _emailController.text.trim(),
             password: _passwordController.text,
           );
+      final signedInUserId = authResponse.user?.id;
+      if (signedInUserId != null) {
+        await _updateLastLoginAt(signedInUserId);
+      }
     } on AuthException catch (e) {
       if (mounted) setState(() => _errorMessage = e.message);
     } catch (_) {
@@ -69,6 +73,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  Future<void> _updateLastLoginAt(String userId) async {
+    try {
+      await ref
+          .read(supabaseClientProvider)
+          .from('app_users')
+          .update({'last_login_at': DateTime.now().toUtc().toIso8601String()})
+          .eq('id', userId);
+    } catch (_) {
+      // Non-blocking bookkeeping. Login success should not fail if this update
+      // is temporarily blocked by network or policy/config issues.
     }
   }
 
