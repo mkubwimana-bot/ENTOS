@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/format/money_format.dart';
 import '../../core/supabase/supabase_providers.dart';
+import '../products/products_screen.dart';
 import 'dashboard_models.dart';
 import 'dashboard_providers.dart';
 
@@ -68,6 +69,18 @@ class DashboardScreen extends ConsumerWidget {
                 const SizedBox(height: 20),
               ],
               _MetricGrid(summary: summary),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const ProductsScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.inventory_2_outlined),
+                label: const Text('Open Product List'),
+              ),
               if (summary.lowStockProducts.isNotEmpty) ...[
                 const SizedBox(height: 24),
                 _LowStockSection(products: summary.lowStockProducts),
