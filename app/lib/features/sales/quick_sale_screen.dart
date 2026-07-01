@@ -9,6 +9,7 @@ import '../../core/format/money_format.dart';
 import '../../core/supabase/supabase_providers.dart';
 import '../../core/widgets/main_menu_nav_action.dart';
 import 'offline_sale_queue.dart';
+import '../sync/offline_auto_sync.dart';
 
 class _QuickSaleContext {
   const _QuickSaleContext({
@@ -18,6 +19,8 @@ class _QuickSaleContext {
     required this.warehouseId,
     required this.products,
     required this.customers,
+    this.cachedAt,
+    this.fromOfflineCache = false,
   });
 
   final String tenantId;
@@ -26,6 +29,8 @@ class _QuickSaleContext {
   final String warehouseId;
   final List<_QuickSaleProduct> products;
   final List<_QuickSaleCustomer> customers;
+  final DateTime? cachedAt;
+  final bool fromOfflineCache;
 
   Map<String, dynamic> toJson() => {
         'tenant_id': tenantId,
@@ -34,6 +39,7 @@ class _QuickSaleContext {
         'warehouse_id': warehouseId,
         'products': products.map((p) => p.toJson()).toList(),
         'customers': customers.map((c) => c.toJson()).toList(),
+        if (cachedAt != null) 'cached_at': cachedAt!.toIso8601String(),
       };
 
   factory _QuickSaleContext.fromJson(Map<String, dynamic> json) {
@@ -48,6 +54,8 @@ class _QuickSaleContext {
       customers: (json['customers'] as List<dynamic>? ?? [])
           .map((e) => _QuickSaleCustomer.fromJson(e as Map<String, dynamic>))
           .toList(),
+      cachedAt: DateTime.tryParse(json['cached_at'] as String? ?? ''),
+      fromOfflineCache: true,
     );
   }
 }
@@ -91,17 +99,27 @@ class _QuickSaleProduct {
 }
 
 class _QuickSaleCustomer {
-  const _QuickSaleCustomer({required this.id, required this.name});
+  const _QuickSaleCustomer({
+    required this.id,
+    required this.name,
+    this.balanceOwed,
+  });
 
   final String id;
   final String name;
+  final double? balanceOwed;
 
-  Map<String, dynamic> toJson() => {'id': id, 'name': name};
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        if (balanceOwed != null) 'balance_owed': balanceOwed,
+      };
 
   factory _QuickSaleCustomer.fromJson(Map<String, dynamic> json) {
     return _QuickSaleCustomer(
       id: json['id'] as String,
       name: json['name'] as String? ?? 'Unnamed customer',
+      balanceOwed: (json['balance_owed'] as num?)?.toDouble(),
     );
   }
 }
@@ -209,7 +227,17 @@ final quickSaleContextProvider =
           .eq('status', 'active')
           .isFilter('deleted_at', null)
           .order('party_name'),
+      client
+          .from('vw_customer_balances')
+          .select('party_id, balance'),
     ]);
+
+    final balanceByParty = <String, double>{};
+    for (final row in results[2] as List<dynamic>) {
+      final map = row as Map<String, dynamic>;
+      balanceByParty[map['party_id'] as String] =
+          (map['balance'] as num?)?.toDouble() ?? 0;
+    }
 
     final products = (results[0] as List<dynamic>).map((row) {
       final map = row as Map<String, dynamic>;
@@ -225,9 +253,11 @@ final quickSaleContextProvider =
 
     final customers = (results[1] as List<dynamic>).map((row) {
       final map = row as Map<String, dynamic>;
+      final id = map['id'] as String;
       return _QuickSaleCustomer(
-        id: map['id'] as String,
+        id: id,
         name: map['party_name'] as String? ?? 'Unnamed customer',
+        balanceOwed: balanceByParty[id],
       );
     }).toList();
 
@@ -238,6 +268,7 @@ final quickSaleContextProvider =
       warehouseId: warehouseId,
       products: products,
       customers: customers,
+      cachedAt: DateTime.now(),
     );
 
     // Cache the setup so Quick Sale can still be opened while offline.
@@ -284,6 +315,13 @@ class _QuickSaleScreenState extends ConsumerState<QuickSaleScreen> {
 
   double get _grandTotal =>
       _cart.fold<double>(0, (sum, line) => sum + line.lineTotal);
+
+  String _formatCachedAt(DateTime dt) {
+    final local = dt.toLocal();
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${local.year}-${two(local.month)}-${two(local.day)} '
+        '${two(local.hour)}:${two(local.minute)}';
+  }
 
   void _addProduct(_QuickSaleProduct product) {
     setState(() {
@@ -401,6 +439,7 @@ class _QuickSaleScreenState extends ConsumerState<QuickSaleScreen> {
 
     await ref.read(offlineSaleQueueProvider).add(pending);
     ref.invalidate(offlinePendingCountProvider);
+    requestOfflineAutoSync(ref);
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -453,10 +492,29 @@ class _QuickSaleScreenState extends ConsumerState<QuickSaleScreen> {
             .where((p) => p.name.toLowerCase().contains(query))
             .toList();
 
+    _QuickSaleCustomer? selectedCustomer;
+    if (_selectedCustomerId != null) {
+      for (final customer in saleContext.customers) {
+        if (customer.id == _selectedCustomerId) {
+          selectedCustomer = customer;
+          break;
+        }
+      }
+    }
+
     return SafeArea(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (saleContext.fromOfflineCache && saleContext.cachedAt != null)
+            MaterialBanner(
+              content: Text(
+                'Offline — product and customer data from '
+                '${_formatCachedAt(saleContext.cachedAt!)}',
+              ),
+              leading: const Icon(Icons.cloud_off_outlined),
+              actions: const [SizedBox.shrink()],
+            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: Column(
@@ -494,6 +552,19 @@ class _QuickSaleScreenState extends ConsumerState<QuickSaleScreen> {
                         : (value) =>
                             setState(() => _selectedCustomerId = value),
                   ),
+                  if (selectedCustomer?.balanceOwed != null &&
+                      selectedCustomer!.balanceOwed! > 0) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      saleContext.fromOfflineCache
+                          ? 'Amount owed (as of ${_formatCachedAt(saleContext.cachedAt ?? DateTime.now())}): '
+                              '${formatRwf(selectedCustomer.balanceOwed!)}'
+                          : 'Amount owed: ${formatRwf(selectedCustomer.balanceOwed!)}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                    ),
+                  ],
                 ],
                 const SizedBox(height: 12),
                 TextField(

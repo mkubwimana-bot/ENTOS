@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/format/money_format.dart';
 import '../../core/supabase/supabase_providers.dart';
 import '../../core/widgets/main_menu_nav_action.dart';
 import '../sales/offline_sale_queue.dart';
+import 'offline_sync_service.dart';
 
 class SyncStatusScreen extends ConsumerStatefulWidget {
   const SyncStatusScreen({super.key});
@@ -43,62 +43,18 @@ class _SyncStatusScreenState extends ConsumerState<SyncStatusScreen> {
       _message = null;
     });
 
-    final client = ref.read(supabaseClientProvider);
-    final queue = ref.read(offlineSaleQueueProvider);
-    var synced = 0;
-    var stillOffline = false;
-    var failed = 0;
-
-    for (final sale in List<PendingSale>.from(_pending)) {
-      try {
-        await client.rpc(
-          'post_sale_draft',
-          params: {
-            'target_tenant_id': sale.tenantId,
-            'target_branch_id': sale.branchId,
-            'target_warehouse_id': sale.warehouseId,
-            'p_client_reference_id': sale.clientReferenceId,
-            'p_sale_type': sale.saleType,
-            'p_party_id': sale.partyId,
-            'p_notes': sale.notes,
-            'p_captured_at': sale.capturedAt.toIso8601String(),
-            'p_lines': sale.lines
-                .map((l) => {
-                      'product_id': l.productId,
-                      'quantity': l.quantity,
-                      'unit_price': l.unitPrice,
-                    })
-                .toList(),
-          },
-        );
-        await queue.removeByRef(sale.clientReferenceId);
-        synced++;
-      } on PostgrestException catch (e) {
-        failed++;
-        await queue.update(sale.copyWith(lastError: e.message));
-      } catch (error) {
-        if (isOfflineError(error)) {
-          stillOffline = true;
-          break;
-        }
-        failed++;
-        await queue.update(
-          sale.copyWith(lastError: 'Could not sync. Please try again.'),
-        );
-      }
-    }
+    final result = await syncOfflineSales(
+      client: ref.read(supabaseClientProvider),
+      queue: ref.read(offlineSaleQueueProvider),
+    );
 
     ref.invalidate(offlinePendingCountProvider);
     await _load();
     if (!mounted) return;
 
-    final parts = <String>[];
-    if (synced > 0) parts.add('$synced synced');
-    if (failed > 0) parts.add('$failed failed');
-    if (stillOffline) parts.add('still offline');
     setState(() {
       _syncing = false;
-      _message = parts.isEmpty ? 'Nothing to sync.' : '${parts.join(', ')}.';
+      _message = formatSyncResultMessage(result);
     });
   }
 

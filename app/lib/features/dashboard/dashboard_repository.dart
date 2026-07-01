@@ -19,12 +19,17 @@ class DashboardRepository {
           .select('product_name, current_quantity, reorder_level')
           .order('current_quantity'),
       _client.from('vw_pending_mobile_transactions').select('draft_id'),
+      _client
+          .from('vw_gross_profit_simple')
+          .select('estimated_gross_profit')
+          .eq('invoice_date', today),
     ]);
 
     final salesRows = results[0] as List<dynamic>;
     final balanceRows = results[1] as List<dynamic>;
     final lowStockRows = results[2] as List<dynamic>;
     final pendingRows = results[3] as List<dynamic>;
+    final profitRows = results[4] as List<dynamic>;
 
     var todaySales = 0.0;
     var todayInvoiceCount = 0;
@@ -37,6 +42,12 @@ class DashboardRepository {
     var moneyOwed = 0.0;
     for (final row in balanceRows) {
       moneyOwed += _asDouble((row as Map<String, dynamic>)['balance']);
+    }
+
+    var todayEstimatedProfit = 0.0;
+    for (final row in profitRows) {
+      todayEstimatedProfit +=
+          _asDouble((row as Map<String, dynamic>)['estimated_gross_profit']);
     }
 
     final lowStockProducts = lowStockRows
@@ -57,6 +68,7 @@ class DashboardRepository {
       lowStockCount: lowStockProducts.length,
       lowStockProducts: lowStockProducts.take(5).toList(),
       pendingMobileCount: pendingRows.length,
+      todayEstimatedProfit: todayEstimatedProfit,
     );
   }
 

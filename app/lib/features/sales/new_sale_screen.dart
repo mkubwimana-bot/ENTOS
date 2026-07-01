@@ -196,12 +196,31 @@ class _NewSaleScreenState extends ConsumerState<NewSaleScreen> {
         },
       ) as String;
 
+      final invoiceDate = DateTime.now().toIso8601String().substring(0, 10);
+      String? dueDate;
+      if (_saleType == 'credit' && _selectedCustomerId != null) {
+        final partyRows = await ref
+            .read(supabaseClientProvider)
+            .from('parties')
+            .select('customer_credit_terms_days')
+            .eq('id', _selectedCustomerId!)
+            .limit(1);
+        final terms = partyRows.isEmpty
+            ? 30
+            : (partyRows.first['customer_credit_terms_days'] as int?) ?? 30;
+        dueDate = DateTime.now()
+            .add(Duration(days: terms))
+            .toIso8601String()
+            .substring(0, 10);
+      }
+
       final invoiceRows = await ref.read(supabaseClientProvider).from('invoices').insert({
         'tenant_id': saleContext.tenantId,
         'branch_id': saleContext.branchId,
         'warehouse_id': saleContext.warehouseId,
         'invoice_number': invoiceNumber,
-        'invoice_date': DateTime.now().toIso8601String().substring(0, 10),
+        'invoice_date': invoiceDate,
+        'due_date': dueDate,
         'party_id': _saleType == 'credit' ? _selectedCustomerId : _selectedCustomerId,
         'sale_type': _saleType,
         'status': 'posted',

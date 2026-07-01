@@ -7,6 +7,7 @@ class DashboardSummary {
     required this.lowStockCount,
     required this.lowStockProducts,
     required this.pendingMobileCount,
+    required this.todayEstimatedProfit,
   });
 
   final double todaySales;
@@ -15,6 +16,7 @@ class DashboardSummary {
   final int lowStockCount;
   final List<LowStockItem> lowStockProducts;
   final int pendingMobileCount;
+  final double todayEstimatedProfit;
 }
 
 class LowStockItem {

@@ -6,6 +6,7 @@ import '../customers/customers_screen.dart';
 import '../dashboard/dashboard_providers.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../inventory/current_stock_screen.dart';
+import '../inventory/low_stock_screen.dart';
 import '../payments/mobile_payment_screen.dart';
 import '../payments/record_payment_screen.dart';
 import '../products/products_screen.dart';
@@ -15,6 +16,8 @@ import '../sales/new_sale_screen.dart';
 import '../sales/offline_sale_queue.dart';
 import '../sales/quick_sale_screen.dart';
 import '../settings/business_setup_screen.dart';
+import '../settings/subscription_status_screen.dart';
+import '../sync/offline_auto_sync.dart';
 import '../sync/sync_status_screen.dart';
 
 /// Main menu after sign-in. Navigation hub for all business screens.
@@ -89,6 +92,18 @@ class HomeScreen extends ConsumerWidget {
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(
+                  builder: (_) => const SubscriptionStatusScreen(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.card_membership_outlined),
+            label: const Text('Subscription'),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
                   builder: (_) => const ProfileScreen(),
                 ),
               );
@@ -145,6 +160,8 @@ class HomeScreen extends ConsumerWidget {
               );
               if (recorded == true) {
                 ref.invalidate(dashboardSummaryProvider);
+                ref.invalidate(offlinePendingCountProvider);
+                requestOfflineAutoSync(ref);
               }
             },
             icon: const Icon(Icons.bolt_outlined),
@@ -197,6 +214,18 @@ class HomeScreen extends ConsumerWidget {
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(
+                  builder: (_) => const LowStockScreen(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.warning_amber_outlined),
+            label: const Text('Low Stock'),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
                   builder: (_) => const ReportsScreen(),
                 ),
               );
@@ -214,6 +243,7 @@ class HomeScreen extends ConsumerWidget {
               );
               ref.invalidate(offlinePendingCountProvider);
               ref.invalidate(dashboardSummaryProvider);
+              requestOfflineAutoSync(ref);
             },
             icon: const Icon(Icons.sync_outlined),
             label: const _SyncStatusLabel(),

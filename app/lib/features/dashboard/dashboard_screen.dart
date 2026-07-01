@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/format/money_format.dart';
+import '../inventory/low_stock_screen.dart';
 import 'dashboard_models.dart';
 import 'dashboard_providers.dart';
 
@@ -46,6 +47,19 @@ class DashboardScreen extends ConsumerWidget {
               if (summary.lowStockProducts.isNotEmpty) ...[
                 const SizedBox(height: 24),
                 _LowStockSection(products: summary.lowStockProducts),
+              ],
+              if (summary.todayEstimatedProfit != 0) ...[
+                const SizedBox(height: 16),
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.trending_up_outlined),
+                    title: const Text('Estimated profit today'),
+                    trailing: Text(
+                      formatRwf(summary.todayEstimatedProfit),
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                ),
               ],
             ],
           ),
@@ -99,6 +113,15 @@ class _MetricGrid extends StatelessWidget {
               color: summary.lowStockCount > 0
                   ? Theme.of(context).colorScheme.error
                   : Theme.of(context).colorScheme.secondary,
+              onTap: summary.lowStockCount > 0
+                  ? () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const LowStockScreen(),
+                        ),
+                      );
+                    }
+                  : null,
             ),
             _MetricCard(
               title: 'Pending mobile',
@@ -125,6 +148,7 @@ class _MetricCard extends StatelessWidget {
     required this.subtitle,
     required this.icon,
     required this.color,
+    this.onTap,
   });
 
   final String title;
@@ -132,11 +156,12 @@ class _MetricCard extends StatelessWidget {
   final String subtitle;
   final IconData icon;
   final Color color;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
+    final card = Card(
       elevation: 0,
       color: color.withValues(alpha: 0.08),
       child: Padding(
@@ -168,6 +193,12 @@ class _MetricCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+    if (onTap == null) return card;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: card,
     );
   }
 }

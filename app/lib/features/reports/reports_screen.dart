@@ -172,13 +172,74 @@ final grossProfitReportProvider =
   }).toList();
 });
 
+// --- Receivables aging ---
+
+class ReceivablesAgingRow {
+  const ReceivablesAgingRow({
+    required this.partyName,
+    required this.invoiceNumber,
+    required this.invoiceDate,
+    required this.dueDate,
+    required this.outstanding,
+    required this.agingBucket,
+  });
+
+  final String partyName;
+  final String invoiceNumber;
+  final String invoiceDate;
+  final String? dueDate;
+  final double outstanding;
+  final String agingBucket;
+}
+
+const _agingBucketLabels = <String, String>{
+  'current': 'Current',
+  '1_30': '1-30 days overdue',
+  '31_60': '31-60 days overdue',
+  '61_90': '61-90 days overdue',
+  'over_90': 'Over 90 days',
+  'no_due_date': 'No due date',
+};
+
+const _agingBucketOrder = [
+  'current',
+  '1_30',
+  '31_60',
+  '61_90',
+  'over_90',
+  'no_due_date',
+];
+
+final receivablesAgingReportProvider =
+    FutureProvider.autoDispose<List<ReceivablesAgingRow>>((ref) async {
+  final rows = await ref
+      .read(supabaseClientProvider)
+      .from('vw_receivables_aging')
+      .select(
+        'party_name, invoice_number, invoice_date, due_date, outstanding, aging_bucket',
+      )
+      .order('due_date');
+
+  return (rows as List<dynamic>).map((row) {
+    final map = row as Map<String, dynamic>;
+    return ReceivablesAgingRow(
+      partyName: map['party_name'] as String? ?? 'Unnamed customer',
+      invoiceNumber: map['invoice_number'] as String? ?? '',
+      invoiceDate: map['invoice_date'] as String? ?? '',
+      dueDate: map['due_date'] as String?,
+      outstanding: (map['outstanding'] as num?)?.toDouble() ?? 0,
+      agingBucket: map['aging_bucket'] as String? ?? 'no_due_date',
+    );
+  }).toList();
+});
+
 class ReportsScreen extends ConsumerWidget {
   const ReportsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return DefaultTabController(
-      length: 4,
+      length: 5,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Reports'),
@@ -190,6 +251,7 @@ class ReportsScreen extends ConsumerWidget {
               Tab(text: 'Balances'),
               Tab(text: 'Products'),
               Tab(text: 'Gross profit'),
+              Tab(text: 'Aging'),
             ],
           ),
         ),
@@ -199,6 +261,7 @@ class ReportsScreen extends ConsumerWidget {
             _CustomerBalancesTab(),
             _ProductSalesTab(),
             _GrossProfitTab(),
+            _ReceivablesAgingTab(),
           ],
         ),
       ),
@@ -355,37 +418,141 @@ class _GrossProfitTab extends ConsumerWidget {
         message: '$error',
         onRetry: () => ref.invalidate(grossProfitReportProvider),
       ),
-      data: (rows) => _ReportList(
-        emptyMessage: 'No invoices for profit estimate',
-        onRefresh: () async {
-          ref.invalidate(grossProfitReportProvider);
-          await ref.read(grossProfitReportProvider.future);
-        },
-        itemCount: rows.length,
-        itemBuilder: (context, index) {
-          final row = rows[index];
-          return Card(
-            child: ListTile(
-              title: Text(row.invoiceNumber),
-              subtitle: Text('${row.invoiceDate} · cost ${formatRwf(row.estimatedCost)}'),
-              trailing: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    formatRwf(row.totalAmount),
-                    style: Theme.of(context).textTheme.titleSmall,
+      data: (rows) {
+        final totalSales =
+            rows.fold<double>(0, (sum, row) => sum + row.totalAmount);
+        final totalCost =
+            rows.fold<double>(0, (sum, row) => sum + row.estimatedCost);
+        final totalProfit =
+            rows.fold<double>(0, (sum, row) => sum + row.estimatedGrossProfit);
+
+        return _ReportList(
+          emptyMessage: 'No invoices for profit estimate',
+          onRefresh: () async {
+            ref.invalidate(grossProfitReportProvider);
+            await ref.read(grossProfitReportProvider.future);
+          },
+          itemCount: rows.isEmpty ? 0 : rows.length + 1,
+          itemBuilder: (context, index) {
+            if (index == 0 && rows.isNotEmpty) {
+              return Card(
+                color: Theme.of(context)
+                    .colorScheme
+                    .primaryContainer
+                    .withValues(alpha: 0.35),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Summary',
+                          style: Theme.of(context).textTheme.titleSmall),
+                      const SizedBox(height: 8),
+                      Text('Total sales: ${formatRwf(totalSales)}'),
+                      Text('Total cost: ${formatRwf(totalCost)}'),
+                      Text(
+                        'Estimated profit: ${formatRwf(totalProfit)}',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ],
                   ),
-                  Text(
-                    'Profit ${formatRwf(row.estimatedGrossProfit)}',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
+                ),
+              );
+            }
+            final row = rows[rows.isEmpty ? 0 : index - 1];
+            return Card(
+              child: ListTile(
+                title: Text(row.invoiceNumber),
+                subtitle: Text(
+                  '${row.invoiceDate} · cost ${formatRwf(row.estimatedCost)}',
+                ),
+                trailing: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      formatRwf(row.totalAmount),
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    Text(
+                      'Profit ${formatRwf(row.estimatedGrossProfit)}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _ReceivablesAgingTab extends ConsumerWidget {
+  const _ReceivablesAgingTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final reportAsync = ref.watch(receivablesAgingReportProvider);
+    return reportAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, _) => _ReportError(
+        message: '$error',
+        onRetry: () => ref.invalidate(receivablesAgingReportProvider),
       ),
+      data: (rows) {
+        final bucketTotals = <String, double>{};
+        for (final bucket in _agingBucketOrder) {
+          bucketTotals[bucket] = 0;
+        }
+        for (final row in rows) {
+          bucketTotals[row.agingBucket] =
+              (bucketTotals[row.agingBucket] ?? 0) + row.outstanding;
+        }
+
+        return _ReportList(
+          emptyMessage: 'No outstanding receivables with aging data',
+          onRefresh: () async {
+            ref.invalidate(receivablesAgingReportProvider);
+            await ref.read(receivablesAgingReportProvider.future);
+          },
+          itemCount: rows.isEmpty ? 0 : rows.length + 1,
+          itemBuilder: (context, index) {
+            if (index == 0 && rows.isNotEmpty) {
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final bucket in _agingBucketOrder)
+                    if ((bucketTotals[bucket] ?? 0) > 0)
+                      Chip(
+                        label: Text(
+                          '${_agingBucketLabels[bucket] ?? bucket}: '
+                          '${formatRwf(bucketTotals[bucket]!)}',
+                        ),
+                      ),
+                ],
+              );
+            }
+            final row = rows[rows.isEmpty ? 0 : index - 1];
+            return Card(
+              child: ListTile(
+                title: Text('${row.partyName} · ${row.invoiceNumber}'),
+                subtitle: Text(
+                  'Inv ${row.invoiceDate}'
+                  '${row.dueDate != null ? ' · due ${row.dueDate}' : ''}'
+                  '\n${_agingBucketLabels[row.agingBucket] ?? row.agingBucket}',
+                ),
+                trailing: Text(
+                  formatRwf(row.outstanding),
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }
