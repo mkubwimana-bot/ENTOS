@@ -12,6 +12,7 @@ import '../reports/reports_screen.dart';
 import '../sales/new_sale_screen.dart';
 import '../sales/offline_sale_queue.dart';
 import '../sales/quick_sale_screen.dart';
+import '../settings/business_setup_screen.dart';
 import '../sync/sync_status_screen.dart';
 
 /// Main menu after sign-in. Navigation hub for all business screens.
@@ -63,6 +64,18 @@ class HomeScreen extends ConsumerWidget {
             },
             icon: const Icon(Icons.dashboard_outlined),
             label: const Text('Dashboard'),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const BusinessSetupScreen(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.storefront_outlined),
+            label: const Text('Business Setup'),
           ),
           const SizedBox(height: 12),
           FilledButton.icon(
