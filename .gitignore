@@ -4,3 +4,12 @@ node-v24.16.0-win-x64/
 .env.local
 *.log
 .DS_Store
+
+# Build artifacts
+app/dist/
+flutter_*.png
+
+# Legacy-data migration: real personal data and local config — never commit
+supabase/migrations/samples/
+supabase/migration-tools/output/
+supabase/migration-tools/migration_config.json
