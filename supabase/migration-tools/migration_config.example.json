@@ -1,0 +1,11 @@
+{
+  "tenant_id": "e9aefc3f-cc08-4bfe-9b42-c354c62388c5",
+  "branch_id": "85933064-4bbd-482d-bc3b-445b7da2f55e",
+  "warehouse_id": "99ae1e40-b55f-4602-86a2-86c3121b220c",
+  "created_by": "df366d8f-02e5-430e-a4b1-6cfe0b0f978a",
+  "csv_dir": "../migrations/samples",
+  "org_created_at": "2026-05-30",
+  "org_name": "Alpho Shop",
+  "reuse_legacy_uuids": true,
+  "import_voided_history": true
+}
