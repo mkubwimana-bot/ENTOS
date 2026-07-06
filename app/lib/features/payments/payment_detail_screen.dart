@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/auth/role_providers.dart';
 import '../../core/format/money_format.dart';
 import '../../core/supabase/supabase_providers.dart';
 import '../../core/widgets/main_menu_nav_action.dart';
@@ -90,14 +92,74 @@ final paymentDetailProvider =
   );
 });
 
-class PaymentDetailScreen extends ConsumerWidget {
+class PaymentDetailScreen extends ConsumerStatefulWidget {
   const PaymentDetailScreen({required this.paymentId, super.key});
 
   final String paymentId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final detailAsync = ref.watch(paymentDetailProvider(paymentId));
+  ConsumerState<PaymentDetailScreen> createState() =>
+      _PaymentDetailScreenState();
+}
+
+class _PaymentDetailScreenState extends ConsumerState<PaymentDetailScreen> {
+  bool _isVoiding = false;
+
+  Future<bool> _confirmVoid() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete payment?'),
+        content: const Text(
+          'Posted payments cannot be edited. Delete this payment, then record '
+          'it again correctly.\n\n'
+          'This voids the payment and restores the customer balance.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  Future<void> _voidPayment() async {
+    if (!await _confirmVoid()) return;
+
+    setState(() => _isVoiding = true);
+    try {
+      await ref.read(supabaseClientProvider).rpc(
+        'void_payment',
+        params: {'p_payment_id': widget.paymentId},
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Payment deleted')),
+      );
+      Navigator.of(context).pop(true);
+    } on PostgrestException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } finally {
+      if (mounted) setState(() => _isVoiding = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final detailAsync = ref.watch(paymentDetailProvider(widget.paymentId));
+    final canVoidAsync = ref.watch(canVoidTransactionsProvider);
+    final canVoid = canVoidAsync.asData?.value ?? false;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Payment Detail'),
@@ -116,7 +178,8 @@ class PaymentDetailScreen extends ConsumerWidget {
                 Text('Could not load payment: $error', textAlign: TextAlign.center),
                 const SizedBox(height: 16),
                 FilledButton(
-                  onPressed: () => ref.invalidate(paymentDetailProvider(paymentId)),
+                  onPressed: () =>
+                      ref.invalidate(paymentDetailProvider(widget.paymentId)),
                   child: const Text('Try again'),
                 ),
               ],
@@ -173,6 +236,38 @@ class PaymentDetailScreen extends ConsumerWidget {
                   ],
                 ),
               ),
+            if (canVoid) ...[
+              const SizedBox(height: 24),
+              Card(
+                color: Theme.of(context)
+                    .colorScheme
+                    .surfaceContainerHighest
+                    .withValues(alpha: 0.6),
+                child: const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Text(
+                    'Mistakes cannot be edited. Delete this payment, then '
+                    'record it again correctly.',
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: _isVoiding ? null : _voidPayment,
+                icon: _isVoiding
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.delete_outline),
+                label: const Text('Delete payment'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.error,
+                  side: BorderSide(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+            ],
           ],
         ),
       ),

@@ -123,14 +123,17 @@ class PaymentsListScreen extends ConsumerWidget {
                           formatRwf(payment.amount),
                           style: Theme.of(context).textTheme.titleSmall,
                         ),
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute<void>(
+                        onTap: () async {
+                          final deleted = await Navigator.of(context).push<bool>(
+                            MaterialPageRoute<bool>(
                               builder: (_) => PaymentDetailScreen(
                                 paymentId: payment.paymentId,
                               ),
                             ),
                           );
+                          if (deleted == true) {
+                            await _refresh(ref);
+                          }
                         },
                       ),
                     );

@@ -6,10 +6,17 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/format/money_format.dart';
+import '../../core/party/party_list_providers.dart';
 import '../../core/supabase/supabase_providers.dart';
 import '../../core/widgets/main_menu_nav_action.dart';
+import '../../core/widgets/quantity_line_pricing_fields.dart';
 import 'offline_sale_queue.dart';
 import '../sync/offline_auto_sync.dart';
+
+String _unitCodeFromProductRow(Map<String, dynamic> map) {
+  final unit = map['product_units'] as Map<String, dynamic>?;
+  return unit?['unit_code'] as String? ?? 'unit';
+}
 
 class _QuickSaleContext {
   const _QuickSaleContext({
@@ -66,6 +73,7 @@ class _QuickSaleProduct {
     required this.name,
     required this.sellingPrice,
     required this.baseUnitId,
+    required this.unitCode,
     required this.isInventoryTracked,
     required this.costPrice,
   });
@@ -74,6 +82,7 @@ class _QuickSaleProduct {
   final String name;
   final double sellingPrice;
   final String baseUnitId;
+  final String unitCode;
   final bool isInventoryTracked;
   final double? costPrice;
 
@@ -82,6 +91,7 @@ class _QuickSaleProduct {
         'name': name,
         'selling_price': sellingPrice,
         'base_unit_id': baseUnitId,
+        'unit_code': unitCode,
         'is_inventory_tracked': isInventoryTracked,
         'cost_price': costPrice,
       };
@@ -92,6 +102,7 @@ class _QuickSaleProduct {
       name: json['name'] as String? ?? 'Unnamed product',
       sellingPrice: (json['selling_price'] as num?)?.toDouble() ?? 0,
       baseUnitId: json['base_unit_id'] as String,
+      unitCode: json['unit_code'] as String? ?? 'unit',
       isInventoryTracked: json['is_inventory_tracked'] as bool? ?? false,
       costPrice: (json['cost_price'] as num?)?.toDouble(),
     );
@@ -149,22 +160,41 @@ class _QuickSaleContextCache {
   }
 }
 
-/// One product line captured in the quick-sale cart. Owns its own price
-/// controller so the cashier can override the default selling price inline.
+/// One product line captured in the quick-sale cart.
 class _CartLine {
-  _CartLine({required this.product, required this.quantity})
-      : unitPriceController = TextEditingController(
+  _CartLine({required this.product})
+      : quantityController = TextEditingController(text: '1'),
+        amountController = TextEditingController(
           text: product.sellingPrice.toStringAsFixed(0),
         );
 
   final _QuickSaleProduct product;
-  int quantity;
-  final TextEditingController unitPriceController;
+  final TextEditingController quantityController;
+  final TextEditingController amountController;
+  LineAmountMode amountMode = LineAmountMode.unitPrice;
 
-  double get unitPrice => double.tryParse(unitPriceController.text.trim()) ?? 0;
-  double get lineTotal => quantity * unitPrice;
+  double get quantity =>
+      double.tryParse(quantityController.text.trim()) ?? 0;
 
-  void dispose() => unitPriceController.dispose();
+  double get enteredAmount =>
+      double.tryParse(amountController.text.trim()) ?? 0;
+
+  double get unitPrice => resolveLineAmounts(
+        quantity: quantity,
+        mode: amountMode,
+        enteredAmount: enteredAmount,
+      ).unitPrice;
+
+  double get lineTotal => resolveLineAmounts(
+        quantity: quantity,
+        mode: amountMode,
+        enteredAmount: enteredAmount,
+      ).lineTotal;
+
+  void dispose() {
+    quantityController.dispose();
+    amountController.dispose();
+  }
 }
 
 final quickSaleContextProvider =
@@ -218,15 +248,11 @@ final quickSaleContextProvider =
       client
           .from('products')
           .select(
-              'id, product_name, selling_price, base_unit_id, is_inventory_tracked, cost_price')
+            'id, product_name, selling_price, base_unit_id, is_inventory_tracked, cost_price, product_units(unit_code)',
+          )
           .eq('status', 'active')
           .order('product_name'),
-      client
-          .from('parties')
-          .select('id, party_name')
-          .eq('status', 'active')
-          .isFilter('deleted_at', null)
-          .order('party_name'),
+      ref.watch(customerPartiesProvider.future),
       client
           .from('vw_customer_balances')
           .select('party_id, balance'),
@@ -246,18 +272,17 @@ final quickSaleContextProvider =
         name: map['product_name'] as String? ?? 'Unnamed product',
         sellingPrice: (map['selling_price'] as num?)?.toDouble() ?? 0,
         baseUnitId: map['base_unit_id'] as String,
+        unitCode: _unitCodeFromProductRow(map),
         isInventoryTracked: map['is_inventory_tracked'] as bool? ?? false,
         costPrice: (map['cost_price'] as num?)?.toDouble(),
       );
     }).toList();
 
-    final customers = (results[1] as List<dynamic>).map((row) {
-      final map = row as Map<String, dynamic>;
-      final id = map['id'] as String;
+    final customers = (results[1] as List<PartyOption>).map((party) {
       return _QuickSaleCustomer(
-        id: id,
-        name: map['party_name'] as String? ?? 'Unnamed customer',
-        balanceOwed: balanceByParty[id],
+        id: party.id,
+        name: party.name,
+        balanceOwed: balanceByParty[party.id],
       );
     }).toList();
 
@@ -327,21 +352,30 @@ class _QuickSaleScreenState extends ConsumerState<QuickSaleScreen> {
     setState(() {
       final existing = _cart.where((line) => line.product.id == product.id);
       if (existing.isNotEmpty) {
-        existing.first.quantity += 1;
+        final line = existing.first;
+        final next = line.quantity + 1;
+        line.quantityController.text = _formatQuantity(next);
       } else {
-        _cart.add(_CartLine(product: product, quantity: 1));
+        _cart.add(_CartLine(product: product));
       }
     });
   }
 
-  void _changeQuantity(_CartLine line, int delta) {
+  String _formatQuantity(double value) {
+    if (value == value.roundToDouble()) {
+      return value.toStringAsFixed(0);
+    }
+    return value.toString();
+  }
+
+  void _changeQuantity(_CartLine line, double delta) {
     setState(() {
       final next = line.quantity + delta;
       if (next <= 0) {
         line.dispose();
         _cart.remove(line);
       } else {
-        line.quantity = next;
+        line.quantityController.text = _formatQuantity(next);
       }
     });
   }
@@ -358,8 +392,12 @@ class _QuickSaleScreenState extends ConsumerState<QuickSaleScreen> {
       return;
     }
     for (final line in _cart) {
+      if (line.quantity <= 0) {
+        setState(() => _errorMessage = 'Quantity must be greater than zero.');
+        return;
+      }
       if (line.unitPrice < 0) {
-        setState(() => _errorMessage = 'Unit price must be zero or greater.');
+        setState(() => _errorMessage = 'Price must be zero or greater.');
         return;
       }
     }
@@ -372,7 +410,7 @@ class _QuickSaleScreenState extends ConsumerState<QuickSaleScreen> {
     final lines = _cart
         .map((line) => {
               'product_id': line.product.id,
-              'quantity': line.quantity.toDouble(),
+              'quantity': line.quantity,
               'unit_price': line.unitPrice,
             })
         .toList();
@@ -397,15 +435,16 @@ class _QuickSaleScreenState extends ConsumerState<QuickSaleScreen> {
       );
 
       if (mounted) Navigator.of(context).pop(true);
-    } on PostgrestException catch (e) {
-      if (mounted) setState(() => _errorMessage = e.message);
     } catch (error) {
       if (isOfflineError(error)) {
         await _queueOffline(saleContext, clientReferenceId, capturedAt, notes);
         return;
       }
       if (mounted) {
-        setState(() => _errorMessage = 'Could not save sale. Please try again.');
+        final message = error is PostgrestException
+            ? error.message
+            : 'Could not save sale. Please try again.';
+        setState(() => _errorMessage = message);
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -610,7 +649,9 @@ class _QuickSaleScreenState extends ConsumerState<QuickSaleScreen> {
                         (product) => ListTile(
                           contentPadding: EdgeInsets.zero,
                           title: Text(product.name),
-                          subtitle: Text(formatRwf(product.sellingPrice)),
+                          subtitle: Text(
+                            '${formatRwf(product.sellingPrice)} · ${product.unitCode}',
+                          ),
                           trailing: const Icon(Icons.add_circle_outline),
                           onTap: _isSubmitting
                               ? null
@@ -627,50 +668,81 @@ class _QuickSaleScreenState extends ConsumerState<QuickSaleScreen> {
   }
 
   Widget _buildCartRow(_CartLine line) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 3,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
               children: [
-                Text(line.product.name,
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-                Text(
-                  formatRwf(line.lineTotal),
-                  style: Theme.of(context).textTheme.bodySmall,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        line.product.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      Text(
+                        'Unit: ${line.product.unitCode} · ${formatRwf(line.lineTotal)}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.remove_circle_outline),
+                  onPressed:
+                      _isSubmitting ? null : () => _changeQuantity(line, -1),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add_circle_outline),
+                  onPressed:
+                      _isSubmitting ? null : () => _changeQuantity(line, 1),
                 ),
               ],
             ),
-          ),
-          SizedBox(
-            width: 90,
-            child: TextField(
-              controller: line.unitPriceController,
+            const SizedBox(height: 8),
+            TextField(
+              controller: line.quantityController,
               enabled: !_isSubmitting,
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
-              textAlign: TextAlign.right,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 isDense: true,
-                labelText: 'Price',
+                labelText: 'Quantity',
+                suffixText: line.product.unitCode,
+                border: const OutlineInputBorder(),
               ),
               onChanged: (_) => setState(() {}),
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.remove_circle_outline),
-            onPressed:
-                _isSubmitting ? null : () => _changeQuantity(line, -1),
-          ),
-          Text('${line.quantity}'),
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline),
-            onPressed: _isSubmitting ? null : () => _changeQuantity(line, 1),
-          ),
-        ],
+            const SizedBox(height: 8),
+            LineAmountModeToggle(
+              mode: line.amountMode,
+              enabled: !_isSubmitting,
+              onChanged: (mode) => setState(() => line.amountMode = mode),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: line.amountController,
+              enabled: !_isSubmitting,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                isDense: true,
+                labelText: line.amountMode == LineAmountMode.unitPrice
+                    ? 'Unit price (RWF)'
+                    : 'Line total (RWF)',
+                border: const OutlineInputBorder(),
+              ),
+              onChanged: (_) => setState(() {}),
+            ),
+          ],
+        ),
       ),
     );
   }

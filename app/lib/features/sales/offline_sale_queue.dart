@@ -5,19 +5,28 @@ import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Whether an error looks like a connectivity failure (so callers can fall back
 /// to on-device data/queueing) rather than a validation or server rejection.
 bool isOfflineError(Object error) {
+  if (error is PostgrestException) {
+    return _offlineMessageLooksLikeNetwork(error.message);
+  }
   if (error is SocketException || error is TimeoutException) return true;
-  final text = error.toString().toLowerCase();
-  return text.contains('socketexception') ||
-      text.contains('clientexception') ||
-      text.contains('failed host lookup') ||
-      text.contains('connection closed') ||
-      text.contains('connection refused') ||
-      text.contains('network is unreachable') ||
-      text.contains('timed out');
+  return _offlineMessageLooksLikeNetwork(error.toString());
+}
+
+bool _offlineMessageLooksLikeNetwork(String text) {
+  final lower = text.toLowerCase();
+  return lower.contains('socketexception') ||
+      lower.contains('clientexception') ||
+      lower.contains('failed host lookup') ||
+      lower.contains('connection closed') ||
+      lower.contains('connection refused') ||
+      lower.contains('network is unreachable') ||
+      lower.contains('timed out') ||
+      lower.contains('no address associated with hostname');
 }
 
 /// One line item of a queued (unsynced) sale.

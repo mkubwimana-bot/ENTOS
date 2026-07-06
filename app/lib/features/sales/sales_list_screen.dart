@@ -9,7 +9,8 @@ import 'sale_detail_screen.dart';
 class SalesListItem {
   const SalesListItem({
     required this.invoiceId,
-    required this.invoiceNumber,
+    required this.productSummary,
+    required this.totalQuantity,
     required this.invoiceDate,
     required this.saleType,
     required this.partyName,
@@ -18,12 +19,42 @@ class SalesListItem {
   });
 
   final String invoiceId;
-  final String invoiceNumber;
+  final String productSummary;
+  final double totalQuantity;
   final String invoiceDate;
   final String saleType;
   final String partyName;
   final double totalAmount;
   final double balanceAmount;
+}
+
+String _formatQty(double value) {
+  if (value == value.roundToDouble()) return value.toStringAsFixed(0);
+  return value.toStringAsFixed(2);
+}
+
+String _productSummaryFromLines(List<dynamic>? lines) {
+  if (lines == null || lines.isEmpty) return 'No products';
+  final names = <String>[];
+  for (final line in lines) {
+    final map = line as Map<String, dynamic>;
+    final name = (map['description'] as String?)?.trim();
+    if (name != null && name.isNotEmpty) names.add(name);
+  }
+  if (names.isEmpty) return 'No products';
+  if (names.length == 1) return names.first;
+  if (names.length == 2) return '${names[0]}, ${names[1]}';
+  return '${names[0]}, ${names[1]} +${names.length - 2} more';
+}
+
+double _totalQuantityFromLines(List<dynamic>? lines) {
+  if (lines == null || lines.isEmpty) return 0;
+  var total = 0.0;
+  for (final line in lines) {
+    final map = line as Map<String, dynamic>;
+    total += (map['quantity'] as num?)?.toDouble() ?? 0;
+  }
+  return total;
 }
 
 final salesListProvider = FutureProvider.autoDispose<List<SalesListItem>>((
@@ -33,20 +64,23 @@ final salesListProvider = FutureProvider.autoDispose<List<SalesListItem>>((
       .read(supabaseClientProvider)
       .from('invoices')
       .select(
-        'id, invoice_number, invoice_date, sale_type, total_amount, balance_amount, parties(party_name)',
+        'id, invoice_date, sale_type, total_amount, balance_amount, '
+        'parties(party_name), invoice_lines(description, quantity)',
       )
       .eq('status', 'posted')
       .isFilter('voided_at', null)
       .order('invoice_date', ascending: false)
-      .order('invoice_number', ascending: false)
-      .limit(200);
+      .order('created_at', ascending: false)
+      .limit(500);
 
   return (rows as List<dynamic>).map((row) {
     final map = row as Map<String, dynamic>;
     final party = map['parties'] as Map<String, dynamic>?;
+    final lines = map['invoice_lines'] as List<dynamic>?;
     return SalesListItem(
       invoiceId: map['id'] as String,
-      invoiceNumber: map['invoice_number'] as String? ?? '',
+      productSummary: _productSummaryFromLines(lines),
+      totalQuantity: _totalQuantityFromLines(lines),
       invoiceDate: map['invoice_date'] as String? ?? '',
       saleType: map['sale_type'] as String? ?? 'cash',
       partyName: party?['party_name'] as String? ?? 'Walk-in',
@@ -109,10 +143,18 @@ class SalesListScreen extends ConsumerWidget {
                     final sale = sales[index];
                     return Card(
                       child: ListTile(
-                        title: Text(sale.invoiceNumber),
-                        subtitle: Text(
-                          '${sale.invoiceDate} · ${sale.partyName} · ${sale.saleType}',
+                        title: Text(
+                          sale.productSummary,
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
                         ),
+                        subtitle: Text(
+                          '${sale.invoiceDate} · qty ${_formatQty(sale.totalQuantity)} · '
+                          '${sale.partyName} · ${sale.saleType}',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 2,
+                        ),
+                        isThreeLine: true,
                         trailing: Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.end,
@@ -134,14 +176,17 @@ class SalesListScreen extends ConsumerWidget {
                               ),
                           ],
                         ),
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute<void>(
+                        onTap: () async {
+                          final deleted = await Navigator.of(context).push<bool>(
+                            MaterialPageRoute<bool>(
                               builder: (_) => SaleDetailScreen(
                                 invoiceId: sale.invoiceId,
                               ),
                             ),
                           );
+                          if (deleted == true) {
+                            await _refresh(ref);
+                          }
                         },
                       ),
                     );

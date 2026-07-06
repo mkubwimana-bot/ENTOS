@@ -3,8 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/format/money_format.dart';
+import '../../core/party/party_list_providers.dart';
 import '../../core/supabase/supabase_providers.dart';
 import '../../core/widgets/main_menu_nav_action.dart';
+import '../../core/widgets/transaction_date_field.dart';
+import '../../core/widgets/quantity_line_pricing_fields.dart';
+
+String _unitCodeFromProductRow(Map<String, dynamic> map) {
+  final unit = map['product_units'] as Map<String, dynamic>?;
+  return unit?['unit_code'] as String? ?? 'unit';
+}
 
 class _SaleContext {
   const _SaleContext({
@@ -30,6 +38,7 @@ class _SaleProductOption {
     required this.name,
     required this.sellingPrice,
     required this.baseUnitId,
+    required this.unitCode,
     required this.isInventoryTracked,
     required this.costPrice,
   });
@@ -38,6 +47,7 @@ class _SaleProductOption {
   final String name;
   final double sellingPrice;
   final String baseUnitId;
+  final String unitCode;
   final bool isInventoryTracked;
   final double? costPrice;
 }
@@ -96,15 +106,12 @@ final newSaleContextProvider = FutureProvider.autoDispose<_SaleContext>((ref) as
   final results = await Future.wait<dynamic>([
     client
         .from('products')
-        .select('id, product_name, selling_price, base_unit_id, is_inventory_tracked, cost_price')
+        .select(
+          'id, product_name, selling_price, base_unit_id, is_inventory_tracked, cost_price, product_units(unit_code)',
+        )
         .eq('status', 'active')
         .order('product_name'),
-    client
-        .from('parties')
-        .select('id, party_name')
-        .eq('status', 'active')
-        .isFilter('deleted_at', null)
-        .order('party_name'),
+    ref.watch(customerPartiesProvider.future),
   ]);
 
   final products = (results[0] as List<dynamic>)
@@ -115,20 +122,17 @@ final newSaleContextProvider = FutureProvider.autoDispose<_SaleContext>((ref) as
           name: map['product_name'] as String? ?? 'Unnamed product',
           sellingPrice: (map['selling_price'] as num?)?.toDouble() ?? 0,
           baseUnitId: map['base_unit_id'] as String,
+          unitCode: _unitCodeFromProductRow(map),
           isInventoryTracked: map['is_inventory_tracked'] as bool? ?? false,
           costPrice: (map['cost_price'] as num?)?.toDouble(),
         );
       })
       .toList();
 
-  final customers = (results[1] as List<dynamic>)
-      .map((row) {
-        final map = row as Map<String, dynamic>;
-        return _SaleCustomerOption(
-          id: map['id'] as String,
-          name: map['party_name'] as String? ?? 'Unnamed customer',
-        );
-      })
+  final customers = (results[1] as List<PartyOption>)
+      .map(
+        (party) => _SaleCustomerOption(id: party.id, name: party.name),
+      )
       .toList();
 
   return _SaleContext(
@@ -151,19 +155,21 @@ class NewSaleScreen extends ConsumerStatefulWidget {
 class _NewSaleScreenState extends ConsumerState<NewSaleScreen> {
   final _formKey = GlobalKey<FormState>();
   final _quantityController = TextEditingController(text: '1');
-  final _unitPriceController = TextEditingController();
+  final _amountController = TextEditingController();
   final _notesController = TextEditingController();
 
   String _saleType = 'cash';
   String? _selectedProductId;
   String? _selectedCustomerId;
+  LineAmountMode _amountMode = LineAmountMode.unitPrice;
+  DateTime _transactionDate = TransactionDateField.todayDate();
   bool _isSubmitting = false;
   String? _errorMessage;
 
   @override
   void dispose() {
     _quantityController.dispose();
-    _unitPriceController.dispose();
+    _amountController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -182,8 +188,14 @@ class _NewSaleScreenState extends ConsumerState<NewSaleScreen> {
 
     final product = saleContext.products.firstWhere((p) => p.id == _selectedProductId);
     final quantity = double.parse(_quantityController.text.trim());
-    final unitPrice = double.parse(_unitPriceController.text.trim());
-    final total = quantity * unitPrice;
+    final enteredAmount = double.parse(_amountController.text.trim());
+    final resolved = resolveLineAmounts(
+      quantity: quantity,
+      mode: _amountMode,
+      enteredAmount: enteredAmount,
+    );
+    final unitPrice = resolved.unitPrice;
+    final total = resolved.lineTotal;
 
     setState(() => _isSubmitting = true);
     try {
@@ -196,7 +208,7 @@ class _NewSaleScreenState extends ConsumerState<NewSaleScreen> {
         },
       ) as String;
 
-      final invoiceDate = DateTime.now().toIso8601String().substring(0, 10);
+      final invoiceDate = TransactionDateField.toIsoDate(_transactionDate);
       String? dueDate;
       if (_saleType == 'credit' && _selectedCustomerId != null) {
         final partyRows = await ref
@@ -208,10 +220,9 @@ class _NewSaleScreenState extends ConsumerState<NewSaleScreen> {
         final terms = partyRows.isEmpty
             ? 30
             : (partyRows.first['customer_credit_terms_days'] as int?) ?? 30;
-        dueDate = DateTime.now()
-            .add(Duration(days: terms))
-            .toIso8601String()
-            .substring(0, 10);
+        dueDate = TransactionDateField.toIsoDate(
+          _transactionDate.add(Duration(days: terms)),
+        );
       }
 
       final invoiceRows = await ref.read(supabaseClientProvider).from('invoices').insert({
@@ -260,7 +271,7 @@ class _NewSaleScreenState extends ConsumerState<NewSaleScreen> {
           'branch_id': saleContext.branchId,
           'warehouse_id': saleContext.warehouseId,
           'product_id': product.id,
-          'movement_date': DateTime.now().toIso8601String().substring(0, 10),
+          'movement_date': invoiceDate,
           'movement_type': 'sale',
           'quantity_in': 0,
           'quantity_out': quantity,
@@ -282,22 +293,6 @@ class _NewSaleScreenState extends ConsumerState<NewSaleScreen> {
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
-  }
-
-  String? _validateQuantity(String? value) {
-    final text = value?.trim() ?? '';
-    final parsed = double.tryParse(text);
-    if (parsed == null) return 'Enter quantity';
-    if (parsed <= 0) return 'Quantity must be greater than zero';
-    return null;
-  }
-
-  String? _validateUnitPrice(String? value) {
-    final text = value?.trim() ?? '';
-    final parsed = double.tryParse(text);
-    if (parsed == null) return 'Enter unit price';
-    if (parsed < 0) return 'Price must be zero or greater';
-    return null;
   }
 
   @override
@@ -328,7 +323,18 @@ class _NewSaleScreenState extends ConsumerState<NewSaleScreen> {
             ),
           ),
         ),
-        data: (saleContext) => SafeArea(
+        data: (saleContext) {
+          var unitCode = 'unit';
+          if (_selectedProductId != null) {
+            for (final product in saleContext.products) {
+              if (product.id == _selectedProductId) {
+                unitCode = product.unitCode;
+                break;
+              }
+            }
+          }
+
+          return SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Form(
@@ -336,6 +342,13 @@ class _NewSaleScreenState extends ConsumerState<NewSaleScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  const SizedBox(height: 12),
+                  TransactionDateField(
+                    selectedDate: _transactionDate,
+                    enabled: !_isSubmitting,
+                    onChanged: (date) => setState(() => _transactionDate = date),
+                  ),
+                  const SizedBox(height: 12),
                   SegmentedButton<String>(
                     segments: const [
                       ButtonSegment<String>(value: 'cash', label: Text('Cash')),
@@ -349,6 +362,7 @@ class _NewSaleScreenState extends ConsumerState<NewSaleScreen> {
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     initialValue: _selectedProductId,
+                    isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'Product',
                       border: OutlineInputBorder(),
@@ -357,7 +371,12 @@ class _NewSaleScreenState extends ConsumerState<NewSaleScreen> {
                         .map(
                           (product) => DropdownMenuItem<String>(
                             value: product.id,
-                            child: Text('${product.name} (${formatRwf(product.sellingPrice)})'),
+                            child: Text(
+                              '${product.name} · ${product.unitCode} '
+                              '(${formatRwf(product.sellingPrice)})',
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
                           ),
                         )
                         .toList(),
@@ -368,7 +387,7 @@ class _NewSaleScreenState extends ConsumerState<NewSaleScreen> {
                             if (value != null) {
                               final selected =
                                   saleContext.products.firstWhere((p) => p.id == value);
-                              _unitPriceController.text =
+                              _amountController.text =
                                   selected.sellingPrice.toStringAsFixed(0);
                             }
                           },
@@ -378,6 +397,7 @@ class _NewSaleScreenState extends ConsumerState<NewSaleScreen> {
                   if (_saleType == 'credit') ...[
                     DropdownButtonFormField<String>(
                       initialValue: _selectedCustomerId,
+                      isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: 'Customer',
                         border: OutlineInputBorder(),
@@ -386,7 +406,11 @@ class _NewSaleScreenState extends ConsumerState<NewSaleScreen> {
                           .map(
                             (customer) => DropdownMenuItem<String>(
                               value: customer.id,
-                              child: Text(customer.name),
+                              child: Text(
+                                customer.name,
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
                             ),
                           )
                           .toList(),
@@ -398,27 +422,19 @@ class _NewSaleScreenState extends ConsumerState<NewSaleScreen> {
                     ),
                     const SizedBox(height: 12),
                   ],
-                  TextFormField(
-                    controller: _quantityController,
-                    enabled: !_isSubmitting,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(
-                      labelText: 'Quantity',
-                      border: OutlineInputBorder(),
+                  if (_selectedProductId != null) ...[
+                    const SizedBox(height: 12),
+                    QuantityLinePricingFields(
+                      unitCode: unitCode,
+                      quantityController: _quantityController,
+                      amountController: _amountController,
+                      amountMode: _amountMode,
+                      onAmountModeChanged: (mode) =>
+                          setState(() => _amountMode = mode),
+                      enabled: !_isSubmitting,
+                      onChanged: () => setState(() {}),
                     ),
-                    validator: _validateQuantity,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _unitPriceController,
-                    enabled: !_isSubmitting,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(
-                      labelText: 'Unit price (RWF)',
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: _validateUnitPrice,
-                  ),
+                  ],
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _notesController,
@@ -453,7 +469,8 @@ class _NewSaleScreenState extends ConsumerState<NewSaleScreen> {
               ),
             ),
           ),
-        ),
+        );
+        },
       ),
     );
   }
