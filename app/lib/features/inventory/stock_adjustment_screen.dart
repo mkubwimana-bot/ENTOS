@@ -105,6 +105,55 @@ final stockAdjustmentContextProvider =
   );
 });
 
+/// Use the warehouse where this product already has movement history so
+/// adjustments merge with imported stock instead of opening a second row.
+Future<({String branchId, String warehouseId})> _resolveStockLocation({
+  required SupabaseClient client,
+  required String tenantId,
+  required String defaultBranchId,
+  required String defaultWarehouseId,
+  required String productId,
+}) async {
+  final rows = await client
+      .from('stock_movements')
+      .select('warehouse_id')
+      .eq('tenant_id', tenantId)
+      .eq('product_id', productId)
+      .isFilter('voided_at', null);
+
+  final movements = rows as List<dynamic>;
+  if (movements.isEmpty) {
+    return (branchId: defaultBranchId, warehouseId: defaultWarehouseId);
+  }
+
+  final counts = <String, int>{};
+  for (final row in movements) {
+    final map = row as Map<String, dynamic>;
+    final warehouseId = map['warehouse_id'] as String;
+    counts[warehouseId] = (counts[warehouseId] ?? 0) + 1;
+  }
+
+  final warehouseId = counts.entries
+      .reduce((a, b) => a.value >= b.value ? a : b)
+      .key;
+
+  if (warehouseId == defaultWarehouseId) {
+    return (branchId: defaultBranchId, warehouseId: defaultWarehouseId);
+  }
+
+  final warehouseRows = await client
+      .from('warehouses')
+      .select('branch_id')
+      .eq('id', warehouseId)
+      .limit(1);
+  if ((warehouseRows as List).isEmpty) {
+    return (branchId: defaultBranchId, warehouseId: defaultWarehouseId);
+  }
+
+  final branchId = warehouseRows.first['branch_id'] as String;
+  return (branchId: branchId, warehouseId: warehouseId);
+}
+
 class StockAdjustmentScreen extends ConsumerStatefulWidget {
   const StockAdjustmentScreen({super.key});
 
@@ -152,11 +201,18 @@ class _StockAdjustmentScreenState extends ConsumerState<StockAdjustmentScreen> {
       final today = DateTime.now().toIso8601String().substring(0, 10);
       final unitCost = product.costPrice;
       final totalCost = unitCost == null ? null : unitCost * quantity;
+      final location = await _resolveStockLocation(
+        client: client,
+        tenantId: adjustmentContext.tenantId,
+        defaultBranchId: adjustmentContext.branchId,
+        defaultWarehouseId: adjustmentContext.warehouseId,
+        productId: product.id,
+      );
 
       await client.from('stock_movements').insert({
         'tenant_id': adjustmentContext.tenantId,
-        'branch_id': adjustmentContext.branchId,
-        'warehouse_id': adjustmentContext.warehouseId,
+        'branch_id': location.branchId,
+        'warehouse_id': location.warehouseId,
         'product_id': product.id,
         'movement_date': today,
         'movement_type': 'adjustment',
@@ -248,6 +304,7 @@ class _StockAdjustmentScreenState extends ConsumerState<StockAdjustmentScreen> {
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
                     initialValue: _selectedProductId,
+                    isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'Product',
                       border: OutlineInputBorder(),
@@ -256,7 +313,11 @@ class _StockAdjustmentScreenState extends ConsumerState<StockAdjustmentScreen> {
                         .map(
                           (product) => DropdownMenuItem(
                             value: product.id,
-                            child: Text(product.name),
+                            child: Text(
+                              product.name,
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
                           ),
                         )
                         .toList(),

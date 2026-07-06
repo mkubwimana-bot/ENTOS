@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/inventory/merge_stock_by_product.dart';
 import '../../core/supabase/supabase_providers.dart';
 import '../../core/widgets/main_menu_nav_action.dart';
 
@@ -25,22 +26,32 @@ final lowStockProvider = FutureProvider.autoDispose<List<LowStockReportItem>>((
 ) async {
   final rows = await ref
       .read(supabaseClientProvider)
-      .from('vw_low_stock')
+      .from('vw_current_stock')
       .select(
-        'product_code, product_name, warehouse_name, current_quantity, reorder_level',
+        'product_id, product_code, product_name, warehouse_name, current_quantity, reorder_level',
       )
       .order('current_quantity');
 
-  return (rows as List<dynamic>).map((row) {
-    final map = row as Map<String, dynamic>;
-    return LowStockReportItem(
-      productCode: map['product_code'] as String? ?? '',
-      productName: map['product_name'] as String? ?? 'Unnamed product',
-      warehouseName: map['warehouse_name'] as String? ?? 'Unknown warehouse',
-      currentQuantity: (map['current_quantity'] as num?)?.toDouble() ?? 0,
-      reorderLevel: (map['reorder_level'] as num?)?.toDouble() ?? 0,
-    );
-  }).toList();
+  return mergeStockRowsByProduct(
+    (rows as List<dynamic>).map((row) {
+      return ProductStockRow.fromMap(row as Map<String, dynamic>);
+    }).toList(),
+  )
+      .where(
+        (row) =>
+            row.reorderLevel != null &&
+            row.currentQuantity <= row.reorderLevel!,
+      )
+      .map((row) {
+        return LowStockReportItem(
+          productCode: row.productCode,
+          productName: row.productName,
+          warehouseName: row.warehouseName,
+          currentQuantity: row.currentQuantity,
+          reorderLevel: row.reorderLevel!,
+        );
+      })
+      .toList();
 });
 
 /// Full list of products at or below reorder level.

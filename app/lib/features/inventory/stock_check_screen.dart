@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/inventory/merge_stock_by_product.dart';
 import '../../core/supabase/supabase_providers.dart';
 import '../../core/widgets/main_menu_nav_action.dart';
 
@@ -29,18 +30,21 @@ final stockCheckCatalogProvider =
       .read(supabaseClientProvider)
       .from('vw_current_stock')
       .select(
-        'product_code, product_name, warehouse_name, current_quantity, reorder_level',
+        'product_id, product_code, product_name, warehouse_name, current_quantity, reorder_level',
       )
       .order('product_name');
 
-  return (rows as List<dynamic>).map((row) {
-    final map = row as Map<String, dynamic>;
+  return mergeStockRowsByProduct(
+    (rows as List<dynamic>).map((row) {
+      return ProductStockRow.fromMap(row as Map<String, dynamic>);
+    }).toList(),
+  ).map((row) {
     return StockCheckItem(
-      productCode: map['product_code'] as String? ?? '',
-      productName: map['product_name'] as String? ?? 'Unnamed product',
-      warehouseName: map['warehouse_name'] as String? ?? 'Unknown warehouse',
-      currentQuantity: (map['current_quantity'] as num?)?.toDouble() ?? 0,
-      reorderLevel: (map['reorder_level'] as num?)?.toDouble(),
+      productCode: row.productCode,
+      productName: row.productName,
+      warehouseName: row.warehouseName,
+      currentQuantity: row.currentQuantity,
+      reorderLevel: row.reorderLevel,
     );
   }).toList();
 });
