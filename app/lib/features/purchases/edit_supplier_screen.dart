@@ -23,34 +23,31 @@ class _EditSupplierData {
   final String status;
 }
 
-final editSupplierProvider =
-    FutureProvider.autoDispose.family<_EditSupplierData, String>((
-  ref,
-  partyId,
-) async {
-  final client = ref.read(supabaseClientProvider);
-  final userId = client.auth.currentUser?.id;
-  if (userId == null) throw Exception('You must be signed in.');
+final editSupplierProvider = FutureProvider.autoDispose
+    .family<_EditSupplierData, String>((ref, partyId) async {
+      final client = ref.read(supabaseClientProvider);
+      final userId = client.auth.currentUser?.id;
+      if (userId == null) throw Exception('You must be signed in.');
 
-  final partyRows = await client
-      .from('parties')
-      .select('id, party_code, party_name, primary_phone, status')
-      .eq('id', partyId)
-      .isFilter('deleted_at', null)
-      .limit(1);
+      final partyRows = await client
+          .from('parties')
+          .select('id, party_code, party_name, primary_phone, status')
+          .eq('id', partyId)
+          .isFilter('deleted_at', null)
+          .limit(1);
 
-  if ((partyRows as List).isEmpty) throw Exception('Supplier not found.');
-  final party = partyRows.first as Map<String, dynamic>;
+      if (partyRows.isEmpty) throw Exception('Supplier not found.');
+      final party = partyRows.first;
 
-  return _EditSupplierData(
-    partyId: party['id'] as String,
-    userId: userId,
-    partyCode: party['party_code'] as String? ?? '',
-    partyName: party['party_name'] as String? ?? '',
-    phone: party['primary_phone'] as String?,
-    status: party['status'] as String? ?? 'active',
-  );
-});
+      return _EditSupplierData(
+        partyId: party['id'] as String,
+        userId: userId,
+        partyCode: party['party_code'] as String? ?? '',
+        partyName: party['party_name'] as String? ?? '',
+        phone: party['primary_phone'] as String?,
+        status: party['status'] as String? ?? 'active',
+      );
+    });
 
 class EditSupplierScreen extends ConsumerStatefulWidget {
   const EditSupplierScreen({required this.partyId, super.key});
@@ -58,8 +55,7 @@ class EditSupplierScreen extends ConsumerStatefulWidget {
   final String partyId;
 
   @override
-  ConsumerState<EditSupplierScreen> createState() =>
-      _EditSupplierScreenState();
+  ConsumerState<EditSupplierScreen> createState() => _EditSupplierScreenState();
 }
 
 class _EditSupplierScreenState extends ConsumerState<EditSupplierScreen> {
@@ -93,14 +89,18 @@ class _EditSupplierScreenState extends ConsumerState<EditSupplierScreen> {
 
     setState(() => _isSubmitting = true);
     try {
-      await ref.read(supabaseClientProvider).from('parties').update({
-        'party_name': _nameController.text.trim(),
-        'primary_phone': _phoneController.text.trim().isEmpty
-            ? null
-            : _phoneController.text.trim(),
-        'status': _status,
-        'updated_by': data.userId,
-      }).eq('id', data.partyId);
+      await ref
+          .read(supabaseClientProvider)
+          .from('parties')
+          .update({
+            'party_name': _nameController.text.trim(),
+            'primary_phone': _phoneController.text.trim().isEmpty
+                ? null
+                : _phoneController.text.trim(),
+            'status': _status,
+            'updated_by': data.userId,
+          })
+          .eq('id', data.partyId);
 
       if (mounted) Navigator.of(context).pop(true);
     } on PostgrestException catch (e) {
@@ -199,7 +199,10 @@ class _EditSupplierScreenState extends ConsumerState<EditSupplierScreen> {
                         border: OutlineInputBorder(),
                       ),
                       items: const [
-                        DropdownMenuItem(value: 'active', child: Text('Active')),
+                        DropdownMenuItem(
+                          value: 'active',
+                          child: Text('Active'),
+                        ),
                         DropdownMenuItem(
                           value: 'inactive',
                           child: Text('Inactive'),
@@ -212,14 +215,15 @@ class _EditSupplierScreenState extends ConsumerState<EditSupplierScreen> {
                       onChanged: _isSubmitting
                           ? null
                           : (value) =>
-                              setState(() => _status = value ?? 'active'),
+                                setState(() => _status = value ?? 'active'),
                     ),
                     if (_errorMessage != null) ...[
                       const SizedBox(height: 12),
                       Text(
                         _errorMessage!,
-                        style:
-                            TextStyle(color: Theme.of(context).colorScheme.error),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
                       ),
                     ],
                     const SizedBox(height: 20),
@@ -231,8 +235,9 @@ class _EditSupplierScreenState extends ConsumerState<EditSupplierScreen> {
                             ? const SizedBox(
                                 height: 20,
                                 width: 20,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Text('Save changes'),
                       ),

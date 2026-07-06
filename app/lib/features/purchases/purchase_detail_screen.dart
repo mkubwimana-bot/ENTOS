@@ -41,50 +41,49 @@ class _PurchaseDetail {
   final List<_PurchaseLineItem> lines;
 }
 
-final purchaseDetailProvider =
-    FutureProvider.autoDispose.family<_PurchaseDetail, String>((
-  ref,
-  purchaseId,
-) async {
-  final client = ref.read(supabaseClientProvider);
+final purchaseDetailProvider = FutureProvider.autoDispose
+    .family<_PurchaseDetail, String>((ref, purchaseId) async {
+      final client = ref.read(supabaseClientProvider);
 
-  final purchaseRows = await client
-      .from('purchases')
-      .select(
-        'purchase_number, purchase_date, total_amount, notes, parties(party_name)',
-      )
-      .eq('id', purchaseId)
-      .limit(1);
-  if ((purchaseRows as List).isEmpty) throw Exception('Purchase not found.');
-  final purchase = purchaseRows.first;
-  final party = purchase['parties'] as Map<String, dynamic>?;
+      final purchaseRows = await client
+          .from('purchases')
+          .select(
+            'purchase_number, purchase_date, total_amount, notes, parties(party_name)',
+          )
+          .eq('id', purchaseId)
+          .limit(1);
+      if (purchaseRows.isEmpty) {
+        throw Exception('Purchase not found.');
+      }
+      final purchase = purchaseRows.first;
+      final party = purchase['parties'] as Map<String, dynamic>?;
 
-  final lineRows = await client
-      .from('purchase_lines')
-      .select('line_number, description, quantity, unit_cost, line_total')
-      .eq('purchase_id', purchaseId)
-      .order('line_number');
+      final lineRows = await client
+          .from('purchase_lines')
+          .select('line_number, description, quantity, unit_cost, line_total')
+          .eq('purchase_id', purchaseId)
+          .order('line_number');
 
-  final lines = (lineRows as List<dynamic>).map((row) {
-    final map = row as Map<String, dynamic>;
-    return _PurchaseLineItem(
-      lineNumber: (map['line_number'] as num?)?.toInt() ?? 0,
-      description: map['description'] as String? ?? 'Line item',
-      quantity: (map['quantity'] as num?)?.toDouble() ?? 0,
-      unitCost: (map['unit_cost'] as num?)?.toDouble() ?? 0,
-      lineTotal: (map['line_total'] as num?)?.toDouble() ?? 0,
-    );
-  }).toList();
+      final lines = (lineRows as List<dynamic>).map((row) {
+        final map = row as Map<String, dynamic>;
+        return _PurchaseLineItem(
+          lineNumber: (map['line_number'] as num?)?.toInt() ?? 0,
+          description: map['description'] as String? ?? 'Line item',
+          quantity: (map['quantity'] as num?)?.toDouble() ?? 0,
+          unitCost: (map['unit_cost'] as num?)?.toDouble() ?? 0,
+          lineTotal: (map['line_total'] as num?)?.toDouble() ?? 0,
+        );
+      }).toList();
 
-  return _PurchaseDetail(
-    purchaseNumber: purchase['purchase_number'] as String? ?? '',
-    purchaseDate: purchase['purchase_date'] as String? ?? '',
-    supplierName: party?['party_name'] as String? ?? 'No supplier',
-    totalAmount: (purchase['total_amount'] as num?)?.toDouble() ?? 0,
-    notes: purchase['notes'] as String?,
-    lines: lines,
-  );
-});
+      return _PurchaseDetail(
+        purchaseNumber: purchase['purchase_number'] as String? ?? '',
+        purchaseDate: purchase['purchase_date'] as String? ?? '',
+        supplierName: party?['party_name'] as String? ?? 'No supplier',
+        totalAmount: (purchase['total_amount'] as num?)?.toDouble() ?? 0,
+        notes: purchase['notes'] as String?,
+        lines: lines,
+      );
+    });
 
 class PurchaseDetailScreen extends ConsumerStatefulWidget {
   const PurchaseDetailScreen({required this.purchaseId, super.key});
@@ -129,20 +128,19 @@ class _PurchaseDetailScreenState extends ConsumerState<PurchaseDetailScreen> {
 
     setState(() => _isVoiding = true);
     try {
-      await ref.read(supabaseClientProvider).rpc(
-        'void_purchase',
-        params: {'p_purchase_id': widget.purchaseId},
-      );
+      await ref
+          .read(supabaseClientProvider)
+          .rpc('void_purchase', params: {'p_purchase_id': widget.purchaseId});
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Purchase deleted')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Purchase deleted')));
       Navigator.of(context).pop(true);
     } on PostgrestException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
     } finally {
       if (mounted) setState(() => _isVoiding = false);
     }
@@ -151,7 +149,8 @@ class _PurchaseDetailScreenState extends ConsumerState<PurchaseDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final detailAsync = ref.watch(purchaseDetailProvider(widget.purchaseId));
-    final canVoid = ref.watch(canVoidTransactionsProvider).asData?.value ?? false;
+    final canVoid =
+        ref.watch(canVoidTransactionsProvider).asData?.value ?? false;
 
     return Scaffold(
       appBar: AppBar(
@@ -225,12 +224,7 @@ class _PurchaseDetailScreenState extends ConsumerState<PurchaseDetailScreen> {
                       ListTile(
                         title: Text(detail.lines[i].description),
                         subtitle: Text(
-                          'Qty ${detail.lines[i].quantity.toStringAsFixed(
-                            detail.lines[i].quantity ==
-                                    detail.lines[i].quantity.roundToDouble()
-                                ? 0
-                                : 2,
-                          )} '
+                          'Qty ${detail.lines[i].quantity.toStringAsFixed(detail.lines[i].quantity == detail.lines[i].quantity.roundToDouble() ? 0 : 2)} '
                           '@ ${formatRwf(detail.lines[i].unitCost)}',
                         ),
                         trailing: Text(formatRwf(detail.lines[i].lineTotal)),
@@ -242,10 +236,9 @@ class _PurchaseDetailScreenState extends ConsumerState<PurchaseDetailScreen> {
             if (canVoid) ...[
               const SizedBox(height: 24),
               Card(
-                color: Theme.of(context)
-                    .colorScheme
-                    .surfaceContainerHighest
-                    .withValues(alpha: 0.6),
+                color: Theme.of(
+                  context,
+                ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
                 child: const Padding(
                   padding: EdgeInsets.all(12),
                   child: Text(

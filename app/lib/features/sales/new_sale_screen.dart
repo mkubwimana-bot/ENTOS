@@ -59,7 +59,9 @@ class _SaleCustomerOption {
   final String name;
 }
 
-final newSaleContextProvider = FutureProvider.autoDispose<_SaleContext>((ref) async {
+final newSaleContextProvider = FutureProvider.autoDispose<_SaleContext>((
+  ref,
+) async {
   final client = ref.read(supabaseClientProvider);
   final userId = client.auth.currentUser?.id;
   if (userId == null) throw Exception('You must be signed in.');
@@ -114,25 +116,21 @@ final newSaleContextProvider = FutureProvider.autoDispose<_SaleContext>((ref) as
     ref.watch(customerPartiesProvider.future),
   ]);
 
-  final products = (results[0] as List<dynamic>)
-      .map((row) {
-        final map = row as Map<String, dynamic>;
-        return _SaleProductOption(
-          id: map['id'] as String,
-          name: map['product_name'] as String? ?? 'Unnamed product',
-          sellingPrice: (map['selling_price'] as num?)?.toDouble() ?? 0,
-          baseUnitId: map['base_unit_id'] as String,
-          unitCode: _unitCodeFromProductRow(map),
-          isInventoryTracked: map['is_inventory_tracked'] as bool? ?? false,
-          costPrice: (map['cost_price'] as num?)?.toDouble(),
-        );
-      })
-      .toList();
+  final products = (results[0] as List<dynamic>).map((row) {
+    final map = row as Map<String, dynamic>;
+    return _SaleProductOption(
+      id: map['id'] as String,
+      name: map['product_name'] as String? ?? 'Unnamed product',
+      sellingPrice: (map['selling_price'] as num?)?.toDouble() ?? 0,
+      baseUnitId: map['base_unit_id'] as String,
+      unitCode: _unitCodeFromProductRow(map),
+      isInventoryTracked: map['is_inventory_tracked'] as bool? ?? false,
+      costPrice: (map['cost_price'] as num?)?.toDouble(),
+    );
+  }).toList();
 
   final customers = (results[1] as List<PartyOption>)
-      .map(
-        (party) => _SaleCustomerOption(id: party.id, name: party.name),
-      )
+      .map((party) => _SaleCustomerOption(id: party.id, name: party.name))
       .toList();
 
   return _SaleContext(
@@ -186,7 +184,9 @@ class _NewSaleScreenState extends ConsumerState<NewSaleScreen> {
       return;
     }
 
-    final product = saleContext.products.firstWhere((p) => p.id == _selectedProductId);
+    final product = saleContext.products.firstWhere(
+      (p) => p.id == _selectedProductId,
+    );
     final quantity = double.parse(_quantityController.text.trim());
     final enteredAmount = double.parse(_amountController.text.trim());
     final resolved = resolveLineAmounts(
@@ -199,14 +199,18 @@ class _NewSaleScreenState extends ConsumerState<NewSaleScreen> {
 
     setState(() => _isSubmitting = true);
     try {
-      final invoiceNumber = await ref.read(supabaseClientProvider).rpc(
-        'get_next_document_number',
-        params: {
-          'target_tenant_id': saleContext.tenantId,
-          'target_branch_id': saleContext.branchId,
-          'target_sequence_code': 'invoice',
-        },
-      ) as String;
+      final invoiceNumber =
+          await ref
+                  .read(supabaseClientProvider)
+                  .rpc(
+                    'get_next_document_number',
+                    params: {
+                      'target_tenant_id': saleContext.tenantId,
+                      'target_branch_id': saleContext.branchId,
+                      'target_sequence_code': 'invoice',
+                    },
+                  )
+              as String;
 
       final invoiceDate = TransactionDateField.toIsoDate(_transactionDate);
       String? dueDate;
@@ -225,26 +229,35 @@ class _NewSaleScreenState extends ConsumerState<NewSaleScreen> {
         );
       }
 
-      final invoiceRows = await ref.read(supabaseClientProvider).from('invoices').insert({
-        'tenant_id': saleContext.tenantId,
-        'branch_id': saleContext.branchId,
-        'warehouse_id': saleContext.warehouseId,
-        'invoice_number': invoiceNumber,
-        'invoice_date': invoiceDate,
-        'due_date': dueDate,
-        'party_id': _saleType == 'credit' ? _selectedCustomerId : _selectedCustomerId,
-        'sale_type': _saleType,
-        'status': 'posted',
-        'subtotal_amount': total,
-        'discount_amount': 0,
-        'tax_amount': 0,
-        'total_amount': total,
-        'paid_amount': _saleType == 'credit' ? 0 : total,
-        'balance_amount': _saleType == 'credit' ? total : 0,
-        'notes': _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
-        'created_by': saleContext.userId,
-        'posted_at': DateTime.now().toUtc().toIso8601String(),
-      }).select('id').limit(1);
+      final invoiceRows = await ref
+          .read(supabaseClientProvider)
+          .from('invoices')
+          .insert({
+            'tenant_id': saleContext.tenantId,
+            'branch_id': saleContext.branchId,
+            'warehouse_id': saleContext.warehouseId,
+            'invoice_number': invoiceNumber,
+            'invoice_date': invoiceDate,
+            'due_date': dueDate,
+            'party_id': _saleType == 'credit'
+                ? _selectedCustomerId
+                : _selectedCustomerId,
+            'sale_type': _saleType,
+            'status': 'posted',
+            'subtotal_amount': total,
+            'discount_amount': 0,
+            'tax_amount': 0,
+            'total_amount': total,
+            'paid_amount': _saleType == 'credit' ? 0 : total,
+            'balance_amount': _saleType == 'credit' ? total : 0,
+            'notes': _notesController.text.trim().isEmpty
+                ? null
+                : _notesController.text.trim(),
+            'created_by': saleContext.userId,
+            'posted_at': DateTime.now().toUtc().toIso8601String(),
+          })
+          .select('id')
+          .limit(1);
 
       final invoiceId = (invoiceRows as List).first['id'] as String;
 
@@ -276,7 +289,9 @@ class _NewSaleScreenState extends ConsumerState<NewSaleScreen> {
           'quantity_in': 0,
           'quantity_out': quantity,
           'unit_cost': product.costPrice,
-          'total_cost': product.costPrice == null ? null : product.costPrice! * quantity,
+          'total_cost': product.costPrice == null
+              ? null
+              : product.costPrice! * quantity,
           'source_table': 'invoices',
           'source_id': invoiceId,
           'reference_number': invoiceNumber,
@@ -289,7 +304,11 @@ class _NewSaleScreenState extends ConsumerState<NewSaleScreen> {
     } on PostgrestException catch (e) {
       if (mounted) setState(() => _errorMessage = e.message);
     } catch (_) {
-      if (mounted) setState(() => _errorMessage = 'Could not save sale. Please try again.');
+      if (mounted) {
+        setState(
+          () => _errorMessage = 'Could not save sale. Please try again.',
+        );
+      }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -313,7 +332,10 @@ class _NewSaleScreenState extends ConsumerState<NewSaleScreen> {
               children: [
                 const Icon(Icons.error_outline, size: 48),
                 const SizedBox(height: 12),
-                Text('Could not load sale setup: $error', textAlign: TextAlign.center),
+                Text(
+                  'Could not load sale setup: $error',
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 16),
                 FilledButton(
                   onPressed: () => ref.invalidate(newSaleContextProvider),
@@ -335,79 +357,53 @@ class _NewSaleScreenState extends ConsumerState<NewSaleScreen> {
           }
 
           return SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 12),
-                  TransactionDateField(
-                    selectedDate: _transactionDate,
-                    enabled: !_isSubmitting,
-                    onChanged: (date) => setState(() => _transactionDate = date),
-                  ),
-                  const SizedBox(height: 12),
-                  SegmentedButton<String>(
-                    segments: const [
-                      ButtonSegment<String>(value: 'cash', label: Text('Cash')),
-                      ButtonSegment<String>(value: 'credit', label: Text('Credit')),
-                    ],
-                    selected: {_saleType},
-                    onSelectionChanged: _isSubmitting
-                        ? null
-                        : (values) => setState(() => _saleType = values.first),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: _selectedProductId,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Product',
-                      border: OutlineInputBorder(),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 12),
+                    TransactionDateField(
+                      selectedDate: _transactionDate,
+                      enabled: !_isSubmitting,
+                      onChanged: (date) =>
+                          setState(() => _transactionDate = date),
                     ),
-                    items: saleContext.products
-                        .map(
-                          (product) => DropdownMenuItem<String>(
-                            value: product.id,
-                            child: Text(
-                              '${product.name} · ${product.unitCode} '
-                              '(${formatRwf(product.sellingPrice)})',
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 1,
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: _isSubmitting
-                        ? null
-                        : (value) {
-                            setState(() => _selectedProductId = value);
-                            if (value != null) {
-                              final selected =
-                                  saleContext.products.firstWhere((p) => p.id == value);
-                              _amountController.text =
-                                  selected.sellingPrice.toStringAsFixed(0);
-                            }
-                          },
-                    validator: (value) => value == null ? 'Select product' : null,
-                  ),
-                  const SizedBox(height: 12),
-                  if (_saleType == 'credit') ...[
+                    const SizedBox(height: 12),
+                    SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment<String>(
+                          value: 'cash',
+                          label: Text('Cash'),
+                        ),
+                        ButtonSegment<String>(
+                          value: 'credit',
+                          label: Text('Credit'),
+                        ),
+                      ],
+                      selected: {_saleType},
+                      onSelectionChanged: _isSubmitting
+                          ? null
+                          : (values) =>
+                                setState(() => _saleType = values.first),
+                    ),
+                    const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      initialValue: _selectedCustomerId,
+                      initialValue: _selectedProductId,
                       isExpanded: true,
                       decoration: const InputDecoration(
-                        labelText: 'Customer',
+                        labelText: 'Product',
                         border: OutlineInputBorder(),
                       ),
-                      items: saleContext.customers
+                      items: saleContext.products
                           .map(
-                            (customer) => DropdownMenuItem<String>(
-                              value: customer.id,
+                            (product) => DropdownMenuItem<String>(
+                              value: product.id,
                               child: Text(
-                                customer.name,
+                                '${product.name} · ${product.unitCode} '
+                                '(${formatRwf(product.sellingPrice)})',
                                 overflow: TextOverflow.ellipsis,
                                 maxLines: 1,
                               ),
@@ -416,60 +412,104 @@ class _NewSaleScreenState extends ConsumerState<NewSaleScreen> {
                           .toList(),
                       onChanged: _isSubmitting
                           ? null
-                          : (value) => setState(() => _selectedCustomerId = value),
+                          : (value) {
+                              setState(() => _selectedProductId = value);
+                              if (value != null) {
+                                final selected = saleContext.products
+                                    .firstWhere((p) => p.id == value);
+                                _amountController.text = selected.sellingPrice
+                                    .toStringAsFixed(0);
+                              }
+                            },
                       validator: (value) =>
-                          _saleType == 'credit' && value == null ? 'Select customer' : null,
+                          value == null ? 'Select product' : null,
                     ),
                     const SizedBox(height: 12),
-                  ],
-                  if (_selectedProductId != null) ...[
-                    const SizedBox(height: 12),
-                    QuantityLinePricingFields(
-                      unitCode: unitCode,
-                      quantityController: _quantityController,
-                      amountController: _amountController,
-                      amountMode: _amountMode,
-                      onAmountModeChanged: (mode) =>
-                          setState(() => _amountMode = mode),
-                      enabled: !_isSubmitting,
-                      onChanged: () => setState(() {}),
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _notesController,
-                    enabled: !_isSubmitting,
-                    decoration: const InputDecoration(
-                      labelText: 'Notes (optional)',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  if (_errorMessage != null) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      _errorMessage!,
-                      style: TextStyle(color: Theme.of(context).colorScheme.error),
-                    ),
-                  ],
-                  const SizedBox(height: 20),
-                  FilledButton(
-                    onPressed: _isSubmitting ? null : () => _save(saleContext),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: _isSubmitting
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                    if (_saleType == 'credit') ...[
+                      DropdownButtonFormField<String>(
+                        initialValue: _selectedCustomerId,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Customer',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: saleContext.customers
+                            .map(
+                              (customer) => DropdownMenuItem<String>(
+                                value: customer.id,
+                                child: Text(
+                                  customer.name,
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                              ),
                             )
-                          : const Text('Post sale'),
+                            .toList(),
+                        onChanged: _isSubmitting
+                            ? null
+                            : (value) =>
+                                  setState(() => _selectedCustomerId = value),
+                        validator: (value) =>
+                            _saleType == 'credit' && value == null
+                            ? 'Select customer'
+                            : null,
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    if (_selectedProductId != null) ...[
+                      const SizedBox(height: 12),
+                      QuantityLinePricingFields(
+                        unitCode: unitCode,
+                        quantityController: _quantityController,
+                        amountController: _amountController,
+                        amountMode: _amountMode,
+                        onAmountModeChanged: (mode) =>
+                            setState(() => _amountMode = mode),
+                        enabled: !_isSubmitting,
+                        onChanged: () => setState(() {}),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _notesController,
+                      enabled: !_isSubmitting,
+                      decoration: const InputDecoration(
+                        labelText: 'Notes (optional)',
+                        border: OutlineInputBorder(),
+                      ),
                     ),
-                  ),
-                ],
+                    if (_errorMessage != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        _errorMessage!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+                    FilledButton(
+                      onPressed: _isSubmitting
+                          ? null
+                          : () => _save(saleContext),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: _isSubmitting
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text('Post sale'),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        );
+          );
         },
       ),
     );

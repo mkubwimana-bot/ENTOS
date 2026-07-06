@@ -34,9 +34,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   void _goToSignup() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const SignupScreen()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const SignupScreen()));
   }
 
   void _goToForgotPassword() {
@@ -203,8 +203,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    // Wrap instead of Row so the button drops to the next line on
+                    // narrow screens rather than overflowing.
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
                           "Don't have an account?",
