@@ -64,8 +64,9 @@ class SyncReviewData {
   int get totalIssues => openConflicts.length + problemDrafts.length;
 }
 
-final syncReviewDataProvider =
-    FutureProvider.autoDispose<SyncReviewData>((ref) async {
+final syncReviewDataProvider = FutureProvider.autoDispose<SyncReviewData>((
+  ref,
+) async {
   final client = ref.read(supabaseClientProvider);
 
   final conflictRows = await client
@@ -125,7 +126,9 @@ final syncReviewDataProvider =
 });
 
 /// Count of server-side issues needing review (for badges on Sync Status).
-final syncReviewIssueCountProvider = FutureProvider.autoDispose<int>((ref) async {
+final syncReviewIssueCountProvider = FutureProvider.autoDispose<int>((
+  ref,
+) async {
   final data = await ref.watch(syncReviewDataProvider.future);
   return data.totalIssues;
 });
@@ -150,26 +153,29 @@ class SyncConflictReviewScreen extends ConsumerWidget {
     if (userId == null) return;
 
     try {
-      await client.from('conflict_logs').update({
-        'resolution_status': resolutionStatus,
-        'resolved_at': DateTime.now().toUtc().toIso8601String(),
-        'resolved_by': userId,
-        'resolution_notes': resolutionStatus == 'ignored'
-            ? 'Dismissed from mobile review'
-            : 'Marked resolved from mobile review',
-      }).eq('id', conflict.id);
+      await client
+          .from('conflict_logs')
+          .update({
+            'resolution_status': resolutionStatus,
+            'resolved_at': DateTime.now().toUtc().toIso8601String(),
+            'resolved_by': userId,
+            'resolution_notes': resolutionStatus == 'ignored'
+                ? 'Dismissed from mobile review'
+                : 'Marked resolved from mobile review',
+          })
+          .eq('id', conflict.id);
 
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Conflict updated')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Conflict updated')));
       }
       await _refresh(ref);
     } on PostgrestException catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     }
   }
@@ -239,8 +245,7 @@ class SyncConflictReviewScreen extends ConsumerWidget {
                               children: [
                                 Text(
                                   _formatLabel(conflict.conflictType),
-                                  style:
-                                      Theme.of(context).textTheme.titleSmall,
+                                  style: Theme.of(context).textTheme.titleSmall,
                                 ),
                                 const SizedBox(height: 4),
                                 Text(conflict.description),
@@ -248,8 +253,9 @@ class SyncConflictReviewScreen extends ConsumerWidget {
                                   const SizedBox(height: 4),
                                   Text(
                                     'Ref: ${conflict.clientReferenceId}',
-                                    style:
-                                        Theme.of(context).textTheme.bodySmall,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall,
                                   ),
                                 ],
                                 const SizedBox(height: 8),
@@ -290,10 +296,8 @@ class SyncConflictReviewScreen extends ConsumerWidget {
                       'Drafts uploaded to the server that could not be posted. '
                       'Fix the underlying issue, then retry from Sync Status.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurfaceVariant,
-                          ),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     if (data.problemDrafts.isEmpty)

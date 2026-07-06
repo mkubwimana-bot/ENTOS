@@ -38,54 +38,51 @@ class _EditCustomerData {
   final double totalPaid;
 }
 
-final editCustomerProvider =
-    FutureProvider.autoDispose.family<_EditCustomerData, String>((
-  ref,
-  partyId,
-) async {
-  final client = ref.read(supabaseClientProvider);
-  final userId = client.auth.currentUser?.id;
-  if (userId == null) throw Exception('You must be signed in.');
+final editCustomerProvider = FutureProvider.autoDispose
+    .family<_EditCustomerData, String>((ref, partyId) async {
+      final client = ref.read(supabaseClientProvider);
+      final userId = client.auth.currentUser?.id;
+      if (userId == null) throw Exception('You must be signed in.');
 
-  final results = await Future.wait<dynamic>([
-    client
-        .from('parties')
-        .select(
-          'id, tenant_id, party_code, party_name, primary_phone, opening_balance, '
-          'customer_credit_limit, customer_credit_terms_days, status',
-        )
-        .eq('id', partyId)
-        .isFilter('deleted_at', null)
-        .limit(1),
-    client
-        .from('vw_customer_balances')
-        .select('balance, total_invoiced, total_paid')
-        .eq('party_id', partyId)
-        .maybeSingle(),
-  ]);
+      final results = await Future.wait<dynamic>([
+        client
+            .from('parties')
+            .select(
+              'id, tenant_id, party_code, party_name, primary_phone, opening_balance, '
+              'customer_credit_limit, customer_credit_terms_days, status',
+            )
+            .eq('id', partyId)
+            .isFilter('deleted_at', null)
+            .limit(1),
+        client
+            .from('vw_customer_balances')
+            .select('balance, total_invoiced, total_paid')
+            .eq('party_id', partyId)
+            .maybeSingle(),
+      ]);
 
-  final partyRows = results[0] as List<dynamic>;
-  if (partyRows.isEmpty) throw Exception('Customer not found.');
-  final party = partyRows.first as Map<String, dynamic>;
+      final partyRows = results[0] as List<dynamic>;
+      if (partyRows.isEmpty) throw Exception('Customer not found.');
+      final party = partyRows.first as Map<String, dynamic>;
 
-  final balanceRow = results[1] as Map<String, dynamic>?;
+      final balanceRow = results[1] as Map<String, dynamic>?;
 
-  return _EditCustomerData(
-    partyId: party['id'] as String,
-    tenantId: party['tenant_id'] as String,
-    userId: userId,
-    partyCode: party['party_code'] as String? ?? '',
-    partyName: party['party_name'] as String? ?? '',
-    phone: party['primary_phone'] as String?,
-    openingBalance: (party['opening_balance'] as num?)?.toDouble() ?? 0,
-    creditLimit: (party['customer_credit_limit'] as num?)?.toDouble(),
-    creditTermsDays: (party['customer_credit_terms_days'] as num?)?.toInt(),
-    status: party['status'] as String? ?? 'active',
-    balance: (balanceRow?['balance'] as num?)?.toDouble() ?? 0,
-    totalInvoiced: (balanceRow?['total_invoiced'] as num?)?.toDouble() ?? 0,
-    totalPaid: (balanceRow?['total_paid'] as num?)?.toDouble() ?? 0,
-  );
-});
+      return _EditCustomerData(
+        partyId: party['id'] as String,
+        tenantId: party['tenant_id'] as String,
+        userId: userId,
+        partyCode: party['party_code'] as String? ?? '',
+        partyName: party['party_name'] as String? ?? '',
+        phone: party['primary_phone'] as String?,
+        openingBalance: (party['opening_balance'] as num?)?.toDouble() ?? 0,
+        creditLimit: (party['customer_credit_limit'] as num?)?.toDouble(),
+        creditTermsDays: (party['customer_credit_terms_days'] as num?)?.toInt(),
+        status: party['status'] as String? ?? 'active',
+        balance: (balanceRow?['balance'] as num?)?.toDouble() ?? 0,
+        totalInvoiced: (balanceRow?['total_invoiced'] as num?)?.toDouble() ?? 0,
+        totalPaid: (balanceRow?['total_paid'] as num?)?.toDouble() ?? 0,
+      );
+    });
 
 class EditCustomerScreen extends ConsumerStatefulWidget {
   const EditCustomerScreen({required this.partyId, super.key});
@@ -125,8 +122,7 @@ class _EditCustomerScreenState extends ConsumerState<EditCustomerScreen> {
     _phoneController.text = data.phone ?? '';
     _openingBalanceController.text = data.openingBalance.toStringAsFixed(0);
     _creditLimitController.text = data.creditLimit?.toStringAsFixed(0) ?? '';
-    _creditTermsController.text =
-        (data.creditTermsDays ?? 30).toString();
+    _creditTermsController.text = (data.creditTermsDays ?? 30).toString();
     _status = data.status;
     _initialized = true;
   }
@@ -141,27 +137,36 @@ class _EditCustomerScreenState extends ConsumerState<EditCustomerScreen> {
       final creditLimitText = _creditLimitController.text.trim();
       final creditTermsText = _creditTermsController.text.trim();
 
-      await ref.read(supabaseClientProvider).from('parties').update({
-        'party_name': _nameController.text.trim(),
-        'primary_phone': _phoneController.text.trim().isEmpty
-            ? null
-            : _phoneController.text.trim(),
-        'opening_balance':
-            openingBalanceText.isEmpty ? 0 : double.parse(openingBalanceText),
-        'customer_credit_limit':
-            creditLimitText.isEmpty ? null : double.parse(creditLimitText),
-        'customer_credit_terms_days':
-            creditTermsText.isEmpty ? 30 : int.parse(creditTermsText),
-        'status': _status,
-        'updated_by': data.userId,
-      }).eq('id', data.partyId);
+      await ref
+          .read(supabaseClientProvider)
+          .from('parties')
+          .update({
+            'party_name': _nameController.text.trim(),
+            'primary_phone': _phoneController.text.trim().isEmpty
+                ? null
+                : _phoneController.text.trim(),
+            'opening_balance': openingBalanceText.isEmpty
+                ? 0
+                : double.parse(openingBalanceText),
+            'customer_credit_limit': creditLimitText.isEmpty
+                ? null
+                : double.parse(creditLimitText),
+            'customer_credit_terms_days': creditTermsText.isEmpty
+                ? 30
+                : int.parse(creditTermsText),
+            'status': _status,
+            'updated_by': data.userId,
+          })
+          .eq('id', data.partyId);
 
       if (mounted) Navigator.of(context).pop(true);
     } on PostgrestException catch (e) {
       if (mounted) setState(() => _errorMessage = e.message);
     } catch (_) {
       if (mounted) {
-        setState(() => _errorMessage = 'Could not save customer. Please try again.');
+        setState(
+          () => _errorMessage = 'Could not save customer. Please try again.',
+        );
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -210,7 +215,10 @@ class _EditCustomerScreenState extends ConsumerState<EditCustomerScreen> {
               children: [
                 const Icon(Icons.error_outline, size: 48),
                 const SizedBox(height: 12),
-                Text('Could not load customer: $error', textAlign: TextAlign.center),
+                Text(
+                  'Could not load customer: $error',
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 16),
                 FilledButton(
                   onPressed: () =>
@@ -237,8 +245,10 @@ class _EditCustomerScreenState extends ConsumerState<EditCustomerScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Balance summary',
-                                style: Theme.of(context).textTheme.titleSmall),
+                            Text(
+                              'Balance summary',
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
                             const SizedBox(height: 8),
                             Text('Amount owed: ${formatRwf(data.balance)}'),
                             Text(
@@ -282,8 +292,9 @@ class _EditCustomerScreenState extends ConsumerState<EditCustomerScreen> {
                     TextFormField(
                       controller: _openingBalanceController,
                       enabled: !_isSubmitting,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: const InputDecoration(
                         labelText: 'Opening balance (RWF)',
                         border: OutlineInputBorder(),
@@ -294,8 +305,9 @@ class _EditCustomerScreenState extends ConsumerState<EditCustomerScreen> {
                     TextFormField(
                       controller: _creditLimitController,
                       enabled: !_isSubmitting,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: const InputDecoration(
                         labelText: 'Credit limit (RWF, optional)',
                         border: OutlineInputBorder(),
@@ -322,22 +334,31 @@ class _EditCustomerScreenState extends ConsumerState<EditCustomerScreen> {
                         border: OutlineInputBorder(),
                       ),
                       items: const [
-                        DropdownMenuItem(value: 'active', child: Text('Active')),
                         DropdownMenuItem(
-                            value: 'inactive', child: Text('Inactive')),
+                          value: 'active',
+                          child: Text('Active'),
+                        ),
                         DropdownMenuItem(
-                            value: 'blocked', child: Text('Blocked')),
+                          value: 'inactive',
+                          child: Text('Inactive'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'blocked',
+                          child: Text('Blocked'),
+                        ),
                       ],
                       onChanged: _isSubmitting
                           ? null
-                          : (value) => setState(() => _status = value ?? 'active'),
+                          : (value) =>
+                                setState(() => _status = value ?? 'active'),
                     ),
                     if (_errorMessage != null) ...[
                       const SizedBox(height: 12),
                       Text(
                         _errorMessage!,
-                        style:
-                            TextStyle(color: Theme.of(context).colorScheme.error),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
                       ),
                     ],
                     const SizedBox(height: 20),
@@ -349,8 +370,9 @@ class _EditCustomerScreenState extends ConsumerState<EditCustomerScreen> {
                             ? const SizedBox(
                                 height: 20,
                                 width: 20,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Text('Save changes'),
                       ),

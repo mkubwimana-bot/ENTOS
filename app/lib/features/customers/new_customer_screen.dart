@@ -71,28 +71,44 @@ class _NewCustomerScreenState extends ConsumerState<NewCustomerScreen> {
       final creditLimitText = _creditLimitController.text.trim();
       final creditTermsText = _creditTermsController.text.trim();
 
-      final partyCode = await ref.read(supabaseClientProvider).rpc(
-        'generate_party_code',
-        params: {
-          'target_tenant_id': tenant.tenantId,
-          'party_kind': 'customer',
-        },
-      ) as String;
+      final partyCode =
+          await ref
+                  .read(supabaseClientProvider)
+                  .rpc(
+                    'generate_party_code',
+                    params: {
+                      'target_tenant_id': tenant.tenantId,
+                      'party_kind': 'customer',
+                    },
+                  )
+              as String;
 
-      final insertedRows = await ref.read(supabaseClientProvider).from('parties').insert({
-        'tenant_id': tenant.tenantId,
-        'party_code': partyCode,
-        'party_name': _nameController.text.trim(),
-        'party_kind': 'individual',
-        'primary_phone': _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
-        'opening_balance': openingBalanceText.isEmpty ? 0 : double.parse(openingBalanceText),
-        'customer_credit_limit': creditLimitText.isEmpty ? null : double.parse(creditLimitText),
-        'customer_credit_terms_days':
-            creditTermsText.isEmpty ? 30 : int.parse(creditTermsText),
-        'status': 'active',
-        'is_credit_eligible': true,
-        'created_by': tenant.userId,
-      }).select('id').limit(1);
+      final insertedRows = await ref
+          .read(supabaseClientProvider)
+          .from('parties')
+          .insert({
+            'tenant_id': tenant.tenantId,
+            'party_code': partyCode,
+            'party_name': _nameController.text.trim(),
+            'party_kind': 'individual',
+            'primary_phone': _phoneController.text.trim().isEmpty
+                ? null
+                : _phoneController.text.trim(),
+            'opening_balance': openingBalanceText.isEmpty
+                ? 0
+                : double.parse(openingBalanceText),
+            'customer_credit_limit': creditLimitText.isEmpty
+                ? null
+                : double.parse(creditLimitText),
+            'customer_credit_terms_days': creditTermsText.isEmpty
+                ? 30
+                : int.parse(creditTermsText),
+            'status': 'active',
+            'is_credit_eligible': true,
+            'created_by': tenant.userId,
+          })
+          .select('id')
+          .limit(1);
 
       final partyId = (insertedRows as List).first['id'] as String;
 
@@ -116,7 +132,9 @@ class _NewCustomerScreenState extends ConsumerState<NewCustomerScreen> {
       if (mounted) setState(() => _errorMessage = e.message);
     } catch (_) {
       if (mounted) {
-        setState(() => _errorMessage = 'Could not save customer. Please try again.');
+        setState(
+          () => _errorMessage = 'Could not save customer. Please try again.',
+        );
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -165,7 +183,10 @@ class _NewCustomerScreenState extends ConsumerState<NewCustomerScreen> {
               children: [
                 const Icon(Icons.error_outline, size: 48),
                 const SizedBox(height: 12),
-                Text('Could not load customer setup: $error', textAlign: TextAlign.center),
+                Text(
+                  'Could not load customer setup: $error',
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 16),
                 FilledButton(
                   onPressed: () => ref.invalidate(newCustomerTenantProvider),
@@ -205,7 +226,9 @@ class _NewCustomerScreenState extends ConsumerState<NewCustomerScreen> {
                   TextFormField(
                     controller: _openingBalanceController,
                     enabled: !_isSubmitting,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     decoration: const InputDecoration(
                       labelText: 'Opening balance (RWF, optional)',
                       border: OutlineInputBorder(),
@@ -216,7 +239,9 @@ class _NewCustomerScreenState extends ConsumerState<NewCustomerScreen> {
                   TextFormField(
                     controller: _creditLimitController,
                     enabled: !_isSubmitting,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     decoration: const InputDecoration(
                       labelText: 'Credit limit (RWF, optional)',
                       border: OutlineInputBorder(),
@@ -239,7 +264,9 @@ class _NewCustomerScreenState extends ConsumerState<NewCustomerScreen> {
                     const SizedBox(height: 12),
                     Text(
                       _errorMessage!,
-                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                     ),
                   ],
                   const SizedBox(height: 20),

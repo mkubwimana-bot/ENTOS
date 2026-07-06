@@ -98,8 +98,9 @@ class QuantityLinePricingFields extends StatelessWidget {
             ),
           ],
           selected: {amountMode},
-          onSelectionChanged:
-              enabled ? (selection) => onAmountModeChanged(selection.first) : null,
+          onSelectionChanged: enabled
+              ? (selection) => onAmountModeChanged(selection.first)
+              : null,
         ),
         const SizedBox(height: 12),
         TextFormField(
@@ -134,8 +135,8 @@ class QuantityLinePricingFields extends StatelessWidget {
           Text(
             computedHint,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+              color: Theme.of(context).colorScheme.primary,
+            ),
           ),
         ],
       ],
@@ -168,8 +169,9 @@ class LineAmountModeToggle extends StatelessWidget {
         ButtonSegment(value: LineAmountMode.lineTotal, label: Text('Total')),
       ],
       selected: {mode},
-      onSelectionChanged:
-          enabled ? (selection) => onChanged(selection.first) : null,
+      onSelectionChanged: enabled
+          ? (selection) => onChanged(selection.first)
+          : null,
     );
   }
 }

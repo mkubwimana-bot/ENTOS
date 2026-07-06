@@ -40,8 +40,9 @@ class _BusinessSetup {
   final String? warehouseName;
 }
 
-final businessSetupProvider =
-    FutureProvider.autoDispose<_BusinessSetup>((ref) async {
+final businessSetupProvider = FutureProvider.autoDispose<_BusinessSetup>((
+  ref,
+) async {
   final client = ref.read(supabaseClientProvider);
   final userId = client.auth.currentUser?.id;
   if (userId == null) throw Exception('You must be signed in.');
@@ -63,7 +64,8 @@ final businessSetupProvider =
   final tenantRows = await client
       .from('tenants')
       .select(
-          'legal_name, trading_name, business_type, tin_number, default_currency, onboarding_status')
+        'legal_name, trading_name, business_type, tin_number, default_currency, onboarding_status',
+      )
       .eq('id', tenantId)
       .limit(1);
   if ((tenantRows as List).isEmpty) {
@@ -103,8 +105,9 @@ final businessSetupProvider =
       .eq('branch_id', branchId)
       .eq('is_default', true)
       .limit(1);
-  final warehouse =
-      (warehouseRows as List).isEmpty ? null : warehouseRows.first;
+  final warehouse = (warehouseRows as List).isEmpty
+      ? null
+      : warehouseRows.first;
 
   return _BusinessSetup(
     tenantId: tenantId,
@@ -185,42 +188,53 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
     setState(() => _isSubmitting = true);
     final client = ref.read(supabaseClientProvider);
     try {
-      await client.from('tenants').update({
-        'legal_name': _legalNameController.text.trim(),
-        'trading_name': _trimmedOrNull(_tradingNameController),
-        'business_type': _trimmedOrNull(_businessTypeController),
-        'tin_number': _trimmedOrNull(_tinController),
-        'onboarding_status': 'active',
-        'updated_by': setup.userId,
-      }).eq('id', setup.tenantId);
+      await client
+          .from('tenants')
+          .update({
+            'legal_name': _legalNameController.text.trim(),
+            'trading_name': _trimmedOrNull(_tradingNameController),
+            'business_type': _trimmedOrNull(_businessTypeController),
+            'tin_number': _trimmedOrNull(_tinController),
+            'onboarding_status': 'active',
+            'updated_by': setup.userId,
+          })
+          .eq('id', setup.tenantId);
 
-      await client.from('branches').update({
-        'name': _branchNameController.text.trim(),
-        'phone': _trimmedOrNull(_branchPhoneController),
-        'address_text': _trimmedOrNull(_branchAddressController),
-        'updated_by': setup.userId,
-      }).eq('id', setup.branchId);
+      await client
+          .from('branches')
+          .update({
+            'name': _branchNameController.text.trim(),
+            'phone': _trimmedOrNull(_branchPhoneController),
+            'address_text': _trimmedOrNull(_branchAddressController),
+            'updated_by': setup.userId,
+          })
+          .eq('id', setup.branchId);
 
       if (setup.warehouseId != null &&
           _warehouseNameController.text.trim().isNotEmpty) {
-        await client.from('warehouses').update({
-          'name': _warehouseNameController.text.trim(),
-          'updated_by': setup.userId,
-        }).eq('id', setup.warehouseId!);
+        await client
+            .from('warehouses')
+            .update({
+              'name': _warehouseNameController.text.trim(),
+              'updated_by': setup.userId,
+            })
+            .eq('id', setup.warehouseId!);
       }
 
       if (!mounted) return;
       ref.invalidate(businessSetupProvider);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Business details saved.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Business details saved.')));
       Navigator.of(context).pop(true);
     } on PostgrestException catch (e) {
       if (mounted) setState(() => _errorMessage = e.message);
     } catch (_) {
       if (mounted) {
-        setState(() =>
-            _errorMessage = 'Could not save business details. Please try again.');
+        setState(
+          () => _errorMessage =
+              'Could not save business details. Please try again.',
+        );
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -245,8 +259,10 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
               children: [
                 const Icon(Icons.error_outline, size: 48),
                 const SizedBox(height: 12),
-                Text('Could not load business details: $error',
-                    textAlign: TextAlign.center),
+                Text(
+                  'Could not load business details: $error',
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 16),
                 FilledButton(
                   onPressed: () => ref.invalidate(businessSetupProvider),
@@ -278,7 +294,10 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
                         ),
                       ),
                     const SizedBox(height: 12),
-                    Text('Business', style: Theme.of(context).textTheme.titleMedium),
+                    Text(
+                      'Business',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _legalNameController,
@@ -287,7 +306,8 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
                         labelText: 'Legal name',
                         border: OutlineInputBorder(),
                       ),
-                      validator: (value) => (value == null || value.trim().isEmpty)
+                      validator: (value) =>
+                          (value == null || value.trim().isEmpty)
                           ? 'Enter the business legal name'
                           : null,
                     ),
@@ -329,7 +349,10 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
                       child: Text(setup.currency),
                     ),
                     const SizedBox(height: 24),
-                    Text('Branch', style: Theme.of(context).textTheme.titleMedium),
+                    Text(
+                      'Branch',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _branchNameController,
@@ -338,7 +361,8 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
                         labelText: 'Branch name',
                         border: OutlineInputBorder(),
                       ),
-                      validator: (value) => (value == null || value.trim().isEmpty)
+                      validator: (value) =>
+                          (value == null || value.trim().isEmpty)
                           ? 'Enter the branch name'
                           : null,
                     ),
@@ -362,8 +386,10 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    Text('Warehouse',
-                        style: Theme.of(context).textTheme.titleMedium),
+                    Text(
+                      'Warehouse',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _warehouseNameController,
@@ -379,8 +405,9 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
                       const SizedBox(height: 12),
                       Text(
                         _errorMessage!,
-                        style:
-                            TextStyle(color: Theme.of(context).colorScheme.error),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
                       ),
                     ],
                     const SizedBox(height: 24),
@@ -392,8 +419,9 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
                             ? const SizedBox(
                                 height: 20,
                                 width: 20,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Text('Save business details'),
                       ),

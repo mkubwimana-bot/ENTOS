@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../supabase/supabase_providers.dart';
 
 /// True when the signed-in user is an active owner or manager for their tenant.
-final canVoidTransactionsProvider = FutureProvider.autoDispose<bool>((ref) async {
+final canVoidTransactionsProvider = FutureProvider.autoDispose<bool>((
+  ref,
+) async {
   final client = ref.read(supabaseClientProvider);
   final userId = client.auth.currentUser?.id;
   if (userId == null) return false;

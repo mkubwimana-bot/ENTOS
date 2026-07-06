@@ -90,8 +90,8 @@ class ReportPeriodNotifier extends Notifier<ReportPeriodSelection> {
 
 final reportPeriodProvider =
     NotifierProvider<ReportPeriodNotifier, ReportPeriodSelection>(
-  ReportPeriodNotifier.new,
-);
+      ReportPeriodNotifier.new,
+    );
 
 class StockPeriodNotifier extends Notifier<ReportPeriodSelection> {
   @override
@@ -113,8 +113,8 @@ class StockPeriodNotifier extends Notifier<ReportPeriodSelection> {
 
 final stockPeriodProvider =
     NotifierProvider<StockPeriodNotifier, ReportPeriodSelection>(
-  StockPeriodNotifier.new,
-);
+      StockPeriodNotifier.new,
+    );
 
 class _PeriodBar extends ConsumerWidget {
   const _PeriodBar({

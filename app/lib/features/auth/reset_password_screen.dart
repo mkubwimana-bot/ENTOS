@@ -39,9 +39,10 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
 
     setState(() => _isSubmitting = true);
     try {
-      await ref.read(supabaseClientProvider).auth.updateUser(
-        UserAttributes(password: _passwordController.text),
-      );
+      await ref
+          .read(supabaseClientProvider)
+          .auth
+          .updateUser(UserAttributes(password: _passwordController.text));
       ref.read(passwordRecoveryModeProvider.notifier).clear();
     } on AuthException catch (e) {
       if (mounted) setState(() => _errorMessage = e.message);

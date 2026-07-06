@@ -65,9 +65,9 @@ Future<ActiveTenantMembership> resolveActiveTenantMembership(
       .key;
 
   final chosen = memberships.cast<Map<String, dynamic>>().firstWhere(
-        (row) => row['tenant_id'] == chosenTenantId,
-        orElse: () => memberships.first as Map<String, dynamic>,
-      );
+    (row) => row['tenant_id'] == chosenTenantId,
+    orElse: () => memberships.first as Map<String, dynamic>,
+  );
 
   return ActiveTenantMembership(
     tenantId: chosen['tenant_id'] as String,

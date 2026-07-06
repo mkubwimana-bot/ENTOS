@@ -58,8 +58,9 @@ class OfflineAutoSyncController {
 
   void _start() {
     if (_connectivitySub != null) return;
-    _connectivitySub =
-        Connectivity().onConnectivityChanged.listen(_onConnectivity);
+    _connectivitySub = Connectivity().onConnectivityChanged.listen(
+      _onConnectivity,
+    );
     unawaited(ensurePolling());
     scheduleSync();
   }
@@ -196,7 +197,8 @@ class OfflineAutoSyncLifecycle extends ConsumerStatefulWidget {
       _OfflineAutoSyncLifecycleState();
 }
 
-class _OfflineAutoSyncLifecycleState extends ConsumerState<OfflineAutoSyncLifecycle>
+class _OfflineAutoSyncLifecycleState
+    extends ConsumerState<OfflineAutoSyncLifecycle>
     with WidgetsBindingObserver {
   @override
   void initState() {

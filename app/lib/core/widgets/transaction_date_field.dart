@@ -65,8 +65,7 @@ class TransactionDateField extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
             ),
-            if (enabled)
-              const Icon(Icons.edit_calendar_outlined, size: 20),
+            if (enabled) const Icon(Icons.edit_calendar_outlined, size: 20),
           ],
         ),
       ),

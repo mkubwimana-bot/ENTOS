@@ -34,7 +34,9 @@ final productListProvider = FutureProvider.autoDispose<List<ProductListItem>>((
 
   final rows = await client
       .from('products')
-      .select('id, product_code, product_name, selling_price, status, is_inventory_tracked')
+      .select(
+        'id, product_code, product_name, selling_price, status, is_inventory_tracked',
+      )
       .eq('tenant_id', tenantId)
       .order('product_name');
 
@@ -193,14 +195,14 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                                   style: Theme.of(context).textTheme.titleSmall,
                                 ),
                                 onTap: () async {
-                                  final updated =
-                                      await Navigator.of(context).push<bool>(
-                                    MaterialPageRoute<bool>(
-                                      builder: (_) => EditProductScreen(
-                                        productId: product.productId,
-                                      ),
-                                    ),
-                                  );
+                                  final updated = await Navigator.of(context)
+                                      .push<bool>(
+                                        MaterialPageRoute<bool>(
+                                          builder: (_) => EditProductScreen(
+                                            productId: product.productId,
+                                          ),
+                                        ),
+                                      );
                                   if (updated == true) {
                                     ref.invalidate(productListProvider);
                                   }

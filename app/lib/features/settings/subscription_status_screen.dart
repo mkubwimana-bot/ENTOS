@@ -20,8 +20,9 @@ class _SubscriptionInfo {
   final bool isFallback;
 }
 
-final subscriptionStatusProvider =
-    FutureProvider.autoDispose<_SubscriptionInfo>((ref) async {
+final subscriptionStatusProvider = FutureProvider.autoDispose<_SubscriptionInfo>((
+  ref,
+) async {
   final client = ref.read(supabaseClientProvider);
   final userId = client.auth.currentUser?.id;
   if (userId == null) throw Exception('You must be signed in.');
@@ -116,8 +117,10 @@ class SubscriptionStatusScreen extends ConsumerWidget {
               children: [
                 const Icon(Icons.error_outline, size: 48),
                 const SizedBox(height: 12),
-                Text('Could not load subscription: $error',
-                    textAlign: TextAlign.center),
+                Text(
+                  'Could not load subscription: $error',
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 16),
                 FilledButton(
                   onPressed: () => ref.invalidate(subscriptionStatusProvider),
@@ -148,8 +151,10 @@ class SubscriptionStatusScreen extends ConsumerWidget {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: _statusColor(context, info.status)
-                            .withValues(alpha: 0.12),
+                        color: _statusColor(
+                          context,
+                          info.status,
+                        ).withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
@@ -168,8 +173,10 @@ class SubscriptionStatusScreen extends ConsumerWidget {
                     ],
                     if (info.currentPeriodEnd != null) ...[
                       const SizedBox(height: 16),
-                      Text('Current period ends',
-                          style: theme.textTheme.labelLarge),
+                      Text(
+                        'Current period ends',
+                        style: theme.textTheme.labelLarge,
+                      ),
                       const SizedBox(height: 4),
                       Text(info.currentPeriodEnd!),
                     ],

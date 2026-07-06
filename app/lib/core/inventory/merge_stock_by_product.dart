@@ -67,8 +67,7 @@ List<ProductStockRow> mergeStockRowsByProduct(List<ProductStockRow> rows) {
       currentQuantity: row.currentQuantity,
       reorderLevel: row.reorderLevel,
     );
-  }).toList()
-    ..sort((a, b) => a.productName.compareTo(b.productName));
+  }).toList()..sort((a, b) => a.productName.compareTo(b.productName));
 }
 
 String warehouseLabelForProduct(Set<String> names) {
@@ -125,6 +124,5 @@ List<ProductValuationRow> mergeValuationRowsByProduct(
       currentQuantity: entry.value,
       costPrice: sample.costPrice,
     );
-  }).toList()
-    ..sort((a, b) => a.productName.compareTo(b.productName));
+  }).toList()..sort((a, b) => a.productName.compareTo(b.productName));
 }

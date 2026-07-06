@@ -43,112 +43,107 @@ class _EditProductData {
   final List<_ProductCategoryOption> categories;
 }
 
-final editProductProvider =
-    FutureProvider.autoDispose.family<_EditProductData, String>((
-  ref,
-  productId,
-) async {
-  final client = ref.read(supabaseClientProvider);
-  final userId = client.auth.currentUser?.id;
-  if (userId == null) throw Exception('You must be signed in.');
+final editProductProvider = FutureProvider.autoDispose
+    .family<_EditProductData, String>((ref, productId) async {
+      final client = ref.read(supabaseClientProvider);
+      final userId = client.auth.currentUser?.id;
+      if (userId == null) throw Exception('You must be signed in.');
 
-  final membership = await resolveActiveTenantMembership(client);
-  final tenantId = membership.tenantId;
+      final membership = await resolveActiveTenantMembership(client);
+      final tenantId = membership.tenantId;
 
-  final results = await Future.wait<dynamic>([
-    client
-        .from('products')
-        .select(
-          'id, product_code, product_name, product_type_id, base_unit_id, '
-          'category_id, selling_price, cost_price, reorder_level, status',
-        )
-        .eq('id', productId)
-        .eq('tenant_id', tenantId)
-        .limit(1),
-    client
-        .from('product_types')
-        .select('id, type_name')
-        .eq('is_active', true),
-    client
-        .from('product_units')
-        .select('id, unit_code')
-        .or('tenant_id.is.null,tenant_id.eq.$tenantId')
-        .eq('is_active', true),
-    client
-        .from('product_categories')
-        .select('id, category_name')
-        .eq('tenant_id', tenantId)
-        .eq('is_active', true)
-        .order('category_name'),
-  ]);
+      final results = await Future.wait<dynamic>([
+        client
+            .from('products')
+            .select(
+              'id, product_code, product_name, product_type_id, base_unit_id, '
+              'category_id, selling_price, cost_price, reorder_level, status',
+            )
+            .eq('id', productId)
+            .eq('tenant_id', tenantId)
+            .limit(1),
+        client
+            .from('product_types')
+            .select('id, type_name')
+            .eq('is_active', true),
+        client
+            .from('product_units')
+            .select('id, unit_code')
+            .or('tenant_id.is.null,tenant_id.eq.$tenantId')
+            .eq('is_active', true),
+        client
+            .from('product_categories')
+            .select('id, category_name')
+            .eq('tenant_id', tenantId)
+            .eq('is_active', true)
+            .order('category_name'),
+      ]);
 
-  final productRows = results[0] as List<dynamic>;
-  if (productRows.isEmpty) throw Exception('Product not found.');
-  final product = productRows.first as Map<String, dynamic>;
+      final productRows = results[0] as List<dynamic>;
+      if (productRows.isEmpty) throw Exception('Product not found.');
+      final product = productRows.first as Map<String, dynamic>;
 
-  final typesById = <String, String>{};
-  for (final row in results[1] as List<dynamic>) {
-    final map = row as Map<String, dynamic>;
-    typesById[map['id'] as String] = map['type_name'] as String? ?? '';
-  }
-  final unitsById = <String, String>{};
-  for (final row in results[2] as List<dynamic>) {
-    final map = row as Map<String, dynamic>;
-    unitsById[map['id'] as String] = map['unit_code'] as String? ?? '';
-  }
-  final categories = (results[3] as List<dynamic>)
-      .map((row) {
+      final typesById = <String, String>{};
+      for (final row in results[1] as List<dynamic>) {
+        final map = row as Map<String, dynamic>;
+        typesById[map['id'] as String] = map['type_name'] as String? ?? '';
+      }
+      final unitsById = <String, String>{};
+      for (final row in results[2] as List<dynamic>) {
+        final map = row as Map<String, dynamic>;
+        unitsById[map['id'] as String] = map['unit_code'] as String? ?? '';
+      }
+      final categories = (results[3] as List<dynamic>).map((row) {
         final map = row as Map<String, dynamic>;
         return _ProductCategoryOption(
           id: map['id'] as String,
           name: map['category_name'] as String? ?? 'Unknown',
         );
-      })
-      .toList();
+      }).toList();
 
-  var categoryId = product['category_id'] as String?;
-  if (categoryId != null &&
-      !categories.any((category) => category.id == categoryId)) {
-    final extraCategoryRows = await client
-        .from('product_categories')
-        .select('id, category_name')
-        .eq('id', categoryId)
-        .eq('tenant_id', tenantId)
-        .limit(1);
-    if ((extraCategoryRows as List).isNotEmpty) {
-      final map = extraCategoryRows.first;
-      categories.add(
-        _ProductCategoryOption(
-          id: map['id'] as String,
-          name: map['category_name'] as String? ?? 'Unknown',
-        ),
+      var categoryId = product['category_id'] as String?;
+      if (categoryId != null &&
+          !categories.any((category) => category.id == categoryId)) {
+        final extraCategoryRows = await client
+            .from('product_categories')
+            .select('id, category_name')
+            .eq('id', categoryId)
+            .eq('tenant_id', tenantId)
+            .limit(1);
+        if ((extraCategoryRows as List).isNotEmpty) {
+          final map = extraCategoryRows.first;
+          categories.add(
+            _ProductCategoryOption(
+              id: map['id'] as String,
+              name: map['category_name'] as String? ?? 'Unknown',
+            ),
+          );
+          categories.sort((a, b) => a.name.compareTo(b.name));
+        } else {
+          categoryId = null;
+        }
+      }
+
+      final typeId = product['product_type_id'] as String;
+      final unitId = product['base_unit_id'] as String;
+      final status = product['status'] as String? ?? 'active';
+      const allowedStatuses = {'active', 'inactive', 'discontinued'};
+
+      return _EditProductData(
+        productId: product['id'] as String,
+        userId: userId,
+        productCode: product['product_code'] as String? ?? '',
+        productName: product['product_name'] as String? ?? '',
+        typeName: typesById[typeId] ?? 'Unknown',
+        unitCode: unitsById[unitId] ?? '—',
+        sellingPrice: (product['selling_price'] as num?)?.toDouble() ?? 0,
+        costPrice: (product['cost_price'] as num?)?.toDouble(),
+        categoryId: categoryId,
+        reorderLevel: (product['reorder_level'] as num?)?.toDouble(),
+        status: allowedStatuses.contains(status) ? status : 'active',
+        categories: categories,
       );
-      categories.sort((a, b) => a.name.compareTo(b.name));
-    } else {
-      categoryId = null;
-    }
-  }
-
-  final typeId = product['product_type_id'] as String;
-  final unitId = product['base_unit_id'] as String;
-  final status = product['status'] as String? ?? 'active';
-  const allowedStatuses = {'active', 'inactive', 'discontinued'};
-
-  return _EditProductData(
-    productId: product['id'] as String,
-    userId: userId,
-    productCode: product['product_code'] as String? ?? '',
-    productName: product['product_name'] as String? ?? '',
-    typeName: typesById[typeId] ?? 'Unknown',
-    unitCode: unitsById[unitId] ?? '—',
-    sellingPrice: (product['selling_price'] as num?)?.toDouble() ?? 0,
-    costPrice: (product['cost_price'] as num?)?.toDouble(),
-    categoryId: categoryId,
-    reorderLevel: (product['reorder_level'] as num?)?.toDouble(),
-    status: allowedStatuses.contains(status) ? status : 'active',
-    categories: categories,
-  );
-});
+    });
 
 class EditProductScreen extends ConsumerStatefulWidget {
   const EditProductScreen({required this.productId, super.key});
@@ -186,8 +181,7 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
     _nameController.text = data.productName;
     _priceController.text = data.sellingPrice.toStringAsFixed(0);
     _costController.text = data.costPrice?.toStringAsFixed(0) ?? '';
-    _reorderLevelController.text =
-        data.reorderLevel?.toStringAsFixed(0) ?? '';
+    _reorderLevelController.text = data.reorderLevel?.toStringAsFixed(0) ?? '';
     _selectedCategoryId = data.categoryId;
     _status = data.status;
     _initialized = true;
@@ -200,22 +194,27 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
     setState(() => _isSubmitting = true);
     try {
       final costText = _costController.text.trim();
-      await ref.read(supabaseClientProvider).from('products').update({
-        'product_name': _nameController.text.trim(),
-        'category_id': _selectedCategoryId,
-        'selling_price': double.parse(_priceController.text.trim()),
-        'cost_price': costText.isEmpty ? null : double.parse(costText),
-        'reorder_level': _reorderLevelController.text.trim().isEmpty
-            ? null
-            : double.parse(_reorderLevelController.text.trim()),
-        'status': _status,
-        'updated_by': data.userId,
-      }).eq('id', data.productId);
+      await ref
+          .read(supabaseClientProvider)
+          .from('products')
+          .update({
+            'product_name': _nameController.text.trim(),
+            'category_id': _selectedCategoryId,
+            'selling_price': double.parse(_priceController.text.trim()),
+            'cost_price': costText.isEmpty ? null : double.parse(costText),
+            'reorder_level': _reorderLevelController.text.trim().isEmpty
+                ? null
+                : double.parse(_reorderLevelController.text.trim()),
+            'status': _status,
+            'updated_by': data.userId,
+          })
+          .eq('id', data.productId);
 
       if (mounted) Navigator.of(context).pop(true);
     } on PostgrestException catch (e) {
       if (mounted) {
-        final message = e.code == '42501' ||
+        final message =
+            e.code == '42501' ||
                 e.message.toLowerCase().contains('row-level security')
             ? 'You do not have permission to edit products. Ask the owner to assign you a manager or owner role.'
             : e.message;
@@ -223,7 +222,9 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
       }
     } catch (_) {
       if (mounted) {
-        setState(() => _errorMessage = 'Could not save product. Please try again.');
+        setState(
+          () => _errorMessage = 'Could not save product. Please try again.',
+        );
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -271,7 +272,10 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
               children: [
                 const Icon(Icons.error_outline, size: 48),
                 const SizedBox(height: 12),
-                Text('Could not load product: $error', textAlign: TextAlign.center),
+                Text(
+                  'Could not load product: $error',
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 16),
                 FilledButton(
                   onPressed: () =>
@@ -341,14 +345,15 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
                       onChanged: _isSubmitting
                           ? null
                           : (value) =>
-                              setState(() => _selectedCategoryId = value),
+                                setState(() => _selectedCategoryId = value),
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _priceController,
                       enabled: !_isSubmitting,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: const InputDecoration(
                         labelText: 'Selling price (RWF)',
                         border: OutlineInputBorder(),
@@ -359,8 +364,9 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
                     TextFormField(
                       controller: _costController,
                       enabled: !_isSubmitting,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: const InputDecoration(
                         labelText: 'Cost price (RWF, optional)',
                         helperText: 'Used for gross profit estimates',
@@ -372,8 +378,9 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
                     TextFormField(
                       controller: _reorderLevelController,
                       enabled: !_isSubmitting,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: const InputDecoration(
                         labelText: 'Reorder level (optional)',
                         border: OutlineInputBorder(),
@@ -388,22 +395,31 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
                         border: OutlineInputBorder(),
                       ),
                       items: const [
-                        DropdownMenuItem(value: 'active', child: Text('Active')),
                         DropdownMenuItem(
-                            value: 'inactive', child: Text('Inactive')),
+                          value: 'active',
+                          child: Text('Active'),
+                        ),
                         DropdownMenuItem(
-                            value: 'discontinued', child: Text('Discontinued')),
+                          value: 'inactive',
+                          child: Text('Inactive'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'discontinued',
+                          child: Text('Discontinued'),
+                        ),
                       ],
                       onChanged: _isSubmitting
                           ? null
-                          : (value) => setState(() => _status = value ?? 'active'),
+                          : (value) =>
+                                setState(() => _status = value ?? 'active'),
                     ),
                     if (_errorMessage != null) ...[
                       const SizedBox(height: 12),
                       Text(
                         _errorMessage!,
-                        style:
-                            TextStyle(color: Theme.of(context).colorScheme.error),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
                       ),
                     ],
                     const SizedBox(height: 20),
@@ -415,8 +431,9 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
                             ? const SizedBox(
                                 height: 20,
                                 width: 20,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Text('Save changes'),
                       ),

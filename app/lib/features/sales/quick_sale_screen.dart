@@ -40,14 +40,14 @@ class _QuickSaleContext {
   final bool fromOfflineCache;
 
   Map<String, dynamic> toJson() => {
-        'tenant_id': tenantId,
-        'user_id': userId,
-        'branch_id': branchId,
-        'warehouse_id': warehouseId,
-        'products': products.map((p) => p.toJson()).toList(),
-        'customers': customers.map((c) => c.toJson()).toList(),
-        if (cachedAt != null) 'cached_at': cachedAt!.toIso8601String(),
-      };
+    'tenant_id': tenantId,
+    'user_id': userId,
+    'branch_id': branchId,
+    'warehouse_id': warehouseId,
+    'products': products.map((p) => p.toJson()).toList(),
+    'customers': customers.map((c) => c.toJson()).toList(),
+    if (cachedAt != null) 'cached_at': cachedAt!.toIso8601String(),
+  };
 
   factory _QuickSaleContext.fromJson(Map<String, dynamic> json) {
     return _QuickSaleContext(
@@ -87,14 +87,14 @@ class _QuickSaleProduct {
   final double? costPrice;
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'selling_price': sellingPrice,
-        'base_unit_id': baseUnitId,
-        'unit_code': unitCode,
-        'is_inventory_tracked': isInventoryTracked,
-        'cost_price': costPrice,
-      };
+    'id': id,
+    'name': name,
+    'selling_price': sellingPrice,
+    'base_unit_id': baseUnitId,
+    'unit_code': unitCode,
+    'is_inventory_tracked': isInventoryTracked,
+    'cost_price': costPrice,
+  };
 
   factory _QuickSaleProduct.fromJson(Map<String, dynamic> json) {
     return _QuickSaleProduct(
@@ -121,10 +121,10 @@ class _QuickSaleCustomer {
   final double? balanceOwed;
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        if (balanceOwed != null) 'balance_owed': balanceOwed,
-      };
+    'id': id,
+    'name': name,
+    if (balanceOwed != null) 'balance_owed': balanceOwed,
+  };
 
   factory _QuickSaleCustomer.fromJson(Map<String, dynamic> json) {
     return _QuickSaleCustomer(
@@ -163,33 +163,32 @@ class _QuickSaleContextCache {
 /// One product line captured in the quick-sale cart.
 class _CartLine {
   _CartLine({required this.product})
-      : quantityController = TextEditingController(text: '1'),
-        amountController = TextEditingController(
-          text: product.sellingPrice.toStringAsFixed(0),
-        );
+    : quantityController = TextEditingController(text: '1'),
+      amountController = TextEditingController(
+        text: product.sellingPrice.toStringAsFixed(0),
+      );
 
   final _QuickSaleProduct product;
   final TextEditingController quantityController;
   final TextEditingController amountController;
   LineAmountMode amountMode = LineAmountMode.unitPrice;
 
-  double get quantity =>
-      double.tryParse(quantityController.text.trim()) ?? 0;
+  double get quantity => double.tryParse(quantityController.text.trim()) ?? 0;
 
   double get enteredAmount =>
       double.tryParse(amountController.text.trim()) ?? 0;
 
   double get unitPrice => resolveLineAmounts(
-        quantity: quantity,
-        mode: amountMode,
-        enteredAmount: enteredAmount,
-      ).unitPrice;
+    quantity: quantity,
+    mode: amountMode,
+    enteredAmount: enteredAmount,
+  ).unitPrice;
 
   double get lineTotal => resolveLineAmounts(
-        quantity: quantity,
-        mode: amountMode,
-        enteredAmount: enteredAmount,
-      ).lineTotal;
+    quantity: quantity,
+    mode: amountMode,
+    enteredAmount: enteredAmount,
+  ).lineTotal;
 
   void dispose() {
     quantityController.dispose();
@@ -197,8 +196,9 @@ class _CartLine {
   }
 }
 
-final quickSaleContextProvider =
-    FutureProvider.autoDispose<_QuickSaleContext>((ref) async {
+final quickSaleContextProvider = FutureProvider.autoDispose<_QuickSaleContext>((
+  ref,
+) async {
   final client = ref.read(supabaseClientProvider);
   const cache = _QuickSaleContextCache();
   final userId = client.auth.currentUser?.id;
@@ -253,9 +253,7 @@ final quickSaleContextProvider =
           .eq('status', 'active')
           .order('product_name'),
       ref.watch(customerPartiesProvider.future),
-      client
-          .from('vw_customer_balances')
-          .select('party_id, balance'),
+      client.from('vw_customer_balances').select('party_id, balance'),
     ]);
 
     final balanceByParty = <String, double>{};
@@ -403,16 +401,19 @@ class _QuickSaleScreenState extends ConsumerState<QuickSaleScreen> {
     }
 
     final client = ref.read(supabaseClientProvider);
-    final clientReferenceId =
-        OfflineSaleQueue.newClientReferenceId(saleContext.userId);
+    final clientReferenceId = OfflineSaleQueue.newClientReferenceId(
+      saleContext.userId,
+    );
     final capturedAt = DateTime.now().toUtc();
 
     final lines = _cart
-        .map((line) => {
-              'product_id': line.product.id,
-              'quantity': line.quantity,
-              'unit_price': line.unitPrice,
-            })
+        .map(
+          (line) => {
+            'product_id': line.product.id,
+            'quantity': line.quantity,
+            'unit_price': line.unitPrice,
+          },
+        )
         .toList();
 
     const String? notes = null;
@@ -467,12 +468,14 @@ class _QuickSaleScreenState extends ConsumerState<QuickSaleScreen> {
       notes: notes,
       capturedAt: capturedAt,
       lines: _cart
-          .map((line) => PendingSaleLine(
-                productId: line.product.id,
-                productName: line.product.name,
-                quantity: line.quantity.toDouble(),
-                unitPrice: line.unitPrice,
-              ))
+          .map(
+            (line) => PendingSaleLine(
+              productId: line.product.id,
+              productName: line.product.name,
+              quantity: line.quantity.toDouble(),
+              unitPrice: line.unitPrice,
+            ),
+          )
           .toList(),
     );
 
@@ -483,7 +486,9 @@ class _QuickSaleScreenState extends ConsumerState<QuickSaleScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Saved offline. Sync it from Sync Status when back online.'),
+        content: Text(
+          'Saved offline. Sync it from Sync Status when back online.',
+        ),
       ),
     );
     Navigator.of(context).pop(true);
@@ -507,8 +512,10 @@ class _QuickSaleScreenState extends ConsumerState<QuickSaleScreen> {
               children: [
                 const Icon(Icons.error_outline, size: 48),
                 const SizedBox(height: 12),
-                Text('Could not load sale setup: $error',
-                    textAlign: TextAlign.center),
+                Text(
+                  'Could not load sale setup: $error',
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 16),
                 FilledButton(
                   onPressed: () => ref.invalidate(quickSaleContextProvider),
@@ -528,8 +535,8 @@ class _QuickSaleScreenState extends ConsumerState<QuickSaleScreen> {
     final filtered = query.isEmpty
         ? saleContext.products
         : saleContext.products
-            .where((p) => p.name.toLowerCase().contains(query))
-            .toList();
+              .where((p) => p.name.toLowerCase().contains(query))
+              .toList();
 
     _QuickSaleCustomer? selectedCustomer;
     if (_selectedCustomerId != null) {
@@ -563,7 +570,9 @@ class _QuickSaleScreenState extends ConsumerState<QuickSaleScreen> {
                   segments: const [
                     ButtonSegment<String>(value: 'cash', label: Text('Cash')),
                     ButtonSegment<String>(
-                        value: 'credit', label: Text('Credit')),
+                      value: 'credit',
+                      label: Text('Credit'),
+                    ),
                   ],
                   selected: {_saleType},
                   onSelectionChanged: _isSubmitting
@@ -589,7 +598,7 @@ class _QuickSaleScreenState extends ConsumerState<QuickSaleScreen> {
                     onChanged: _isSubmitting
                         ? null
                         : (value) =>
-                            setState(() => _selectedCustomerId = value),
+                              setState(() => _selectedCustomerId = value),
                   ),
                   if (selectedCustomer?.balanceOwed != null &&
                       selectedCustomer!.balanceOwed! > 0) ...[
@@ -597,11 +606,11 @@ class _QuickSaleScreenState extends ConsumerState<QuickSaleScreen> {
                     Text(
                       saleContext.fromOfflineCache
                           ? 'Amount owed (as of ${_formatCachedAt(saleContext.cachedAt ?? DateTime.now())}): '
-                              '${formatRwf(selectedCustomer.balanceOwed!)}'
+                                '${formatRwf(selectedCustomer.balanceOwed!)}'
                           : 'Amount owed: ${formatRwf(selectedCustomer.balanceOwed!)}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.error,
-                          ),
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                     ),
                   ],
                 ],
@@ -636,14 +645,18 @@ class _QuickSaleScreenState extends ConsumerState<QuickSaleScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     children: [
                       if (_cart.isNotEmpty) ...[
-                        Text('Cart',
-                            style: Theme.of(context).textTheme.titleSmall),
+                        Text(
+                          'Cart',
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
                         const SizedBox(height: 4),
                         ..._cart.map(_buildCartRow),
                         const Divider(height: 24),
                       ],
-                      Text('Products',
-                          style: Theme.of(context).textTheme.titleSmall),
+                      Text(
+                        'Products',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
                       const SizedBox(height: 4),
                       ...filtered.map(
                         (product) => ListTile(
@@ -696,13 +709,15 @@ class _QuickSaleScreenState extends ConsumerState<QuickSaleScreen> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.remove_circle_outline),
-                  onPressed:
-                      _isSubmitting ? null : () => _changeQuantity(line, -1),
+                  onPressed: _isSubmitting
+                      ? null
+                      : () => _changeQuantity(line, -1),
                 ),
                 IconButton(
                   icon: const Icon(Icons.add_circle_outline),
-                  onPressed:
-                      _isSubmitting ? null : () => _changeQuantity(line, 1),
+                  onPressed: _isSubmitting
+                      ? null
+                      : () => _changeQuantity(line, 1),
                 ),
               ],
             ),
@@ -710,8 +725,9 @@ class _QuickSaleScreenState extends ConsumerState<QuickSaleScreen> {
             TextField(
               controller: line.quantityController,
               enabled: !_isSubmitting,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               decoration: InputDecoration(
                 isDense: true,
                 labelText: 'Quantity',
@@ -730,8 +746,9 @@ class _QuickSaleScreenState extends ConsumerState<QuickSaleScreen> {
             TextField(
               controller: line.amountController,
               enabled: !_isSubmitting,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               decoration: InputDecoration(
                 isDense: true,
                 labelText: line.amountMode == LineAmountMode.unitPrice

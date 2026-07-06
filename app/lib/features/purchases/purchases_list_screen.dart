@@ -55,32 +55,32 @@ double _totalQuantityFromLines(List<dynamic>? lines) {
 
 final purchasesListProvider =
     FutureProvider.autoDispose<List<PurchasesListItem>>((ref) async {
-  final rows = await ref
-      .read(supabaseClientProvider)
-      .from('purchases')
-      .select(
-        'id, purchase_date, total_amount, parties(party_name), '
-        'purchase_lines(description, quantity)',
-      )
-      .eq('status', 'posted')
-      .isFilter('voided_at', null)
-      .order('purchase_date', ascending: false)
-      .limit(200);
+      final rows = await ref
+          .read(supabaseClientProvider)
+          .from('purchases')
+          .select(
+            'id, purchase_date, total_amount, parties(party_name), '
+            'purchase_lines(description, quantity)',
+          )
+          .eq('status', 'posted')
+          .isFilter('voided_at', null)
+          .order('purchase_date', ascending: false)
+          .limit(200);
 
-  return (rows as List<dynamic>).map((row) {
-    final map = row as Map<String, dynamic>;
-    final party = map['parties'] as Map<String, dynamic>?;
-    final lines = map['purchase_lines'] as List<dynamic>?;
-    return PurchasesListItem(
-      purchaseId: map['id'] as String,
-      productSummary: _productSummaryFromLines(lines),
-      totalQuantity: _totalQuantityFromLines(lines),
-      purchaseDate: map['purchase_date'] as String? ?? '',
-      supplierName: party?['party_name'] as String? ?? 'No supplier',
-      totalAmount: (map['total_amount'] as num?)?.toDouble() ?? 0,
-    );
-  }).toList();
-});
+      return (rows as List<dynamic>).map((row) {
+        final map = row as Map<String, dynamic>;
+        final party = map['parties'] as Map<String, dynamic>?;
+        final lines = map['purchase_lines'] as List<dynamic>?;
+        return PurchasesListItem(
+          purchaseId: map['id'] as String,
+          productSummary: _productSummaryFromLines(lines),
+          totalQuantity: _totalQuantityFromLines(lines),
+          purchaseDate: map['purchase_date'] as String? ?? '',
+          supplierName: party?['party_name'] as String? ?? 'No supplier',
+          totalAmount: (map['total_amount'] as num?)?.toDouble() ?? 0,
+        );
+      }).toList();
+    });
 
 class PurchasesListScreen extends ConsumerWidget {
   const PurchasesListScreen({super.key});

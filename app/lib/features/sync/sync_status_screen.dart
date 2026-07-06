@@ -60,7 +60,9 @@ class _SyncStatusScreenState extends ConsumerState<SyncStatusScreen> {
   }
 
   Future<void> _delete(PendingSale sale) async {
-    await ref.read(offlineSaleQueueProvider).removeByRef(sale.clientReferenceId);
+    await ref
+        .read(offlineSaleQueueProvider)
+        .removeByRef(sale.clientReferenceId);
     ref.invalidate(offlinePendingCountProvider);
     await _load();
   }
@@ -105,14 +107,16 @@ class _SyncStatusScreenState extends ConsumerState<SyncStatusScreen> {
                         ),
                       ),
                       FilledButton.icon(
-                        onPressed:
-                            _pending.isEmpty || _syncing ? null : _syncNow,
+                        onPressed: _pending.isEmpty || _syncing
+                            ? null
+                            : _syncNow,
                         icon: _syncing
                             ? const SizedBox(
                                 height: 16,
                                 width: 16,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Icon(Icons.sync),
                         label: const Text('Sync Now'),
@@ -124,16 +128,14 @@ class _SyncStatusScreenState extends ConsumerState<SyncStatusScreen> {
                     'Sales saved on this device. They reach the server only '
                     'after you tap Sync Now.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   if (_pending.isEmpty)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 32),
-                      child: Center(
-                        child: Text('No sales waiting to sync.'),
-                      ),
+                      child: Center(child: Text('No sales waiting to sync.')),
                     )
                   else
                     ..._pending.map(_buildPendingCard),
@@ -226,8 +228,8 @@ class _ServerReviewSection extends ConsumerWidget {
         Text(
           'Open conflicts and failed drafts already on the server.',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
         const SizedBox(height: 8),
         FilledButton.tonalIcon(
@@ -241,12 +243,12 @@ class _ServerReviewSection extends ConsumerWidget {
             ref.invalidate(syncReviewDataProvider);
           },
           icon: Icon(
-            issueCount > 0 ? Icons.warning_amber_outlined : Icons.rule_folder_outlined,
+            issueCount > 0
+                ? Icons.warning_amber_outlined
+                : Icons.rule_folder_outlined,
           ),
           label: Text(
-            issueCount > 0
-                ? 'Review $issueCount issue(s)'
-                : 'Open sync review',
+            issueCount > 0 ? 'Review $issueCount issue(s)' : 'Open sync review',
           ),
         ),
       ],
@@ -272,8 +274,8 @@ class _ServerPendingSection extends ConsumerWidget {
           'Drafts already uploaded to the server (after syncing, or from other '
           'devices). Your on-device sales above are not counted here until synced.',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
         const SizedBox(height: 8),
         async.when(

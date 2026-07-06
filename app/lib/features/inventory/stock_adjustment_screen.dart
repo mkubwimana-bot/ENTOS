@@ -35,75 +35,73 @@ class _StockAdjustmentContext {
 
 final stockAdjustmentContextProvider =
     FutureProvider.autoDispose<_StockAdjustmentContext>((ref) async {
-  final client = ref.read(supabaseClientProvider);
-  final userId = client.auth.currentUser?.id;
-  if (userId == null) throw Exception('You must be signed in.');
+      final client = ref.read(supabaseClientProvider);
+      final userId = client.auth.currentUser?.id;
+      if (userId == null) throw Exception('You must be signed in.');
 
-  final membershipRows = await client
-      .from('user_tenants')
-      .select('tenant_id, default_branch_id, membership_status')
-      .eq('user_id', userId)
-      .eq('membership_status', 'active')
-      .limit(1);
-  if ((membershipRows as List).isEmpty) {
-    throw Exception('No active tenant membership found for this user.');
-  }
+      final membershipRows = await client
+          .from('user_tenants')
+          .select('tenant_id, default_branch_id, membership_status')
+          .eq('user_id', userId)
+          .eq('membership_status', 'active')
+          .limit(1);
+      if ((membershipRows as List).isEmpty) {
+        throw Exception('No active tenant membership found for this user.');
+      }
 
-  final membership = membershipRows.first;
-  final tenantId = membership['tenant_id'] as String;
-  var branchId = membership['default_branch_id'] as String?;
+      final membership = membershipRows.first;
+      final tenantId = membership['tenant_id'] as String;
+      var branchId = membership['default_branch_id'] as String?;
 
-  if (branchId == null) {
-    final branchRows = await client
-        .from('branches')
-        .select('id')
-        .eq('tenant_id', tenantId)
-        .eq('is_default', true)
-        .limit(1);
-    if ((branchRows as List).isEmpty) {
-      throw Exception('No default branch found for tenant.');
-    }
-    branchId = branchRows.first['id'] as String;
-  }
+      if (branchId == null) {
+        final branchRows = await client
+            .from('branches')
+            .select('id')
+            .eq('tenant_id', tenantId)
+            .eq('is_default', true)
+            .limit(1);
+        if ((branchRows as List).isEmpty) {
+          throw Exception('No default branch found for tenant.');
+        }
+        branchId = branchRows.first['id'] as String;
+      }
 
-  final warehouseRows = await client
-      .from('warehouses')
-      .select('id')
-      .eq('tenant_id', tenantId)
-      .eq('branch_id', branchId)
-      .eq('is_default', true)
-      .limit(1);
-  if ((warehouseRows as List).isEmpty) {
-    throw Exception('No default warehouse found for branch.');
-  }
-  final warehouseId = warehouseRows.first['id'] as String;
+      final warehouseRows = await client
+          .from('warehouses')
+          .select('id')
+          .eq('tenant_id', tenantId)
+          .eq('branch_id', branchId)
+          .eq('is_default', true)
+          .limit(1);
+      if ((warehouseRows as List).isEmpty) {
+        throw Exception('No default warehouse found for branch.');
+      }
+      final warehouseId = warehouseRows.first['id'] as String;
 
-  final productRows = await client
-      .from('products')
-      .select('id, product_name, cost_price, is_inventory_tracked')
-      .eq('status', 'active')
-      .eq('is_inventory_tracked', true)
-      .order('product_name');
+      final productRows = await client
+          .from('products')
+          .select('id, product_name, cost_price, is_inventory_tracked')
+          .eq('status', 'active')
+          .eq('is_inventory_tracked', true)
+          .order('product_name');
 
-  final products = (productRows as List<dynamic>)
-      .map((row) {
+      final products = (productRows as List<dynamic>).map((row) {
         final map = row as Map<String, dynamic>;
         return _StockProductOption(
           id: map['id'] as String,
           name: map['product_name'] as String? ?? 'Unnamed product',
           costPrice: (map['cost_price'] as num?)?.toDouble(),
         );
-      })
-      .toList();
+      }).toList();
 
-  return _StockAdjustmentContext(
-    tenantId: tenantId,
-    userId: userId,
-    branchId: branchId,
-    warehouseId: warehouseId,
-    products: products,
-  );
-});
+      return _StockAdjustmentContext(
+        tenantId: tenantId,
+        userId: userId,
+        branchId: branchId,
+        warehouseId: warehouseId,
+        products: products,
+      );
+    });
 
 /// Use the warehouse where this product already has movement history so
 /// adjustments merge with imported stock instead of opening a second row.
@@ -187,8 +185,9 @@ class _StockAdjustmentScreenState extends ConsumerState<StockAdjustmentScreen> {
     }
 
     final quantity = double.parse(_quantityController.text.trim());
-    final product =
-        adjustmentContext.products.firstWhere((p) => p.id == _selectedProductId);
+    final product = adjustmentContext.products.firstWhere(
+      (p) => p.id == _selectedProductId,
+    );
     final reason = _reasonController.text.trim();
 
     setState(() {
@@ -229,7 +228,9 @@ class _StockAdjustmentScreenState extends ConsumerState<StockAdjustmentScreen> {
       if (mounted) setState(() => _errorMessage = e.message);
     } catch (_) {
       if (mounted) {
-        setState(() => _errorMessage = 'Could not save adjustment. Please try again.');
+        setState(
+          () => _errorMessage = 'Could not save adjustment. Please try again.',
+        );
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -265,7 +266,8 @@ class _StockAdjustmentScreenState extends ConsumerState<StockAdjustmentScreen> {
                 Text('$error', textAlign: TextAlign.center),
                 const SizedBox(height: 16),
                 FilledButton(
-                  onPressed: () => ref.invalidate(stockAdjustmentContextProvider),
+                  onPressed: () =>
+                      ref.invalidate(stockAdjustmentContextProvider),
                   child: const Text('Try again'),
                 ),
               ],
@@ -354,7 +356,9 @@ class _StockAdjustmentScreenState extends ConsumerState<StockAdjustmentScreen> {
                     const SizedBox(height: 16),
                     Text(
                       _errorMessage!,
-                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                     ),
                   ],
                   const SizedBox(height: 24),

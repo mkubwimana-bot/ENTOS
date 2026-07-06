@@ -33,10 +33,10 @@ final lowStockProvider = FutureProvider.autoDispose<List<LowStockReportItem>>((
       .order('current_quantity');
 
   return mergeStockRowsByProduct(
-    (rows as List<dynamic>).map((row) {
-      return ProductStockRow.fromMap(row as Map<String, dynamic>);
-    }).toList(),
-  )
+        (rows as List<dynamic>).map((row) {
+          return ProductStockRow.fromMap(row as Map<String, dynamic>);
+        }).toList(),
+      )
       .where(
         (row) =>
             row.reorderLevel != null &&

@@ -47,76 +47,72 @@ class _EditCashSaleBootstrap {
   final List<_EditProduct> products;
 }
 
-final editCashSaleBootstrapProvider =
-    FutureProvider.autoDispose.family<_EditCashSaleBootstrap, String>((
-  ref,
-  invoiceId,
-) async {
-  final client = ref.read(supabaseClientProvider);
+final editCashSaleBootstrapProvider = FutureProvider.autoDispose
+    .family<_EditCashSaleBootstrap, String>((ref, invoiceId) async {
+      final client = ref.read(supabaseClientProvider);
 
-  final invoiceRows = await client
-      .from('invoices')
-      .select('invoice_number, sale_type, notes')
-      .eq('id', invoiceId)
-      .limit(1);
-  if (invoiceRows.isEmpty) throw Exception('Sale not found.');
-  final invoice = invoiceRows.first;
-  if ((invoice['sale_type'] as String? ?? '') != 'cash') {
-    throw Exception('Only cash sales can be edited here.');
-  }
+      final invoiceRows = await client
+          .from('invoices')
+          .select('invoice_number, sale_type, notes')
+          .eq('id', invoiceId)
+          .limit(1);
+      if (invoiceRows.isEmpty) throw Exception('Sale not found.');
+      final invoice = invoiceRows.first;
+      if ((invoice['sale_type'] as String? ?? '') != 'cash') {
+        throw Exception('Only cash sales can be edited here.');
+      }
 
-  final lineRows = await client
-      .from('invoice_lines')
-      .select('product_id, quantity, unit_price')
-      .eq('invoice_id', invoiceId)
-      .order('line_number');
+      final lineRows = await client
+          .from('invoice_lines')
+          .select('product_id, quantity, unit_price')
+          .eq('invoice_id', invoiceId)
+          .order('line_number');
 
-  final productRows = await client
-      .from('products')
-      .select(
-        'id, product_name, selling_price, product_units(unit_code)',
-      )
-      .eq('status', 'active')
-      .order('product_name');
+      final productRows = await client
+          .from('products')
+          .select('id, product_name, selling_price, product_units(unit_code)')
+          .eq('status', 'active')
+          .order('product_name');
 
-  final products = (productRows as List<dynamic>).map((row) {
-    final map = row as Map<String, dynamic>;
-    final unit = map['product_units'] as Map<String, dynamic>?;
-    return _EditProduct(
-      id: map['id'] as String,
-      name: map['product_name'] as String? ?? 'Unnamed product',
-      sellingPrice: (map['selling_price'] as num?)?.toDouble() ?? 0,
-      unitCode: unit?['unit_code'] as String? ?? 'unit',
-    );
-  }).toList();
+      final products = (productRows as List<dynamic>).map((row) {
+        final map = row as Map<String, dynamic>;
+        final unit = map['product_units'] as Map<String, dynamic>?;
+        return _EditProduct(
+          id: map['id'] as String,
+          name: map['product_name'] as String? ?? 'Unnamed product',
+          sellingPrice: (map['selling_price'] as num?)?.toDouble() ?? 0,
+          unitCode: unit?['unit_code'] as String? ?? 'unit',
+        );
+      }).toList();
 
-  final lines = (lineRows as List<dynamic>).map((row) {
-    final map = row as Map<String, dynamic>;
-    return _EditLineSeed(
-      productId: map['product_id'] as String,
-      quantity: (map['quantity'] as num?)?.toDouble() ?? 0,
-      unitPrice: (map['unit_price'] as num?)?.toDouble() ?? 0,
-    );
-  }).toList();
+      final lines = (lineRows as List<dynamic>).map((row) {
+        final map = row as Map<String, dynamic>;
+        return _EditLineSeed(
+          productId: map['product_id'] as String,
+          quantity: (map['quantity'] as num?)?.toDouble() ?? 0,
+          unitPrice: (map['unit_price'] as num?)?.toDouble() ?? 0,
+        );
+      }).toList();
 
-  return _EditCashSaleBootstrap(
-    invoiceNumber: invoice['invoice_number'] as String? ?? '',
-    notes: invoice['notes'] as String?,
-    lines: lines,
-    products: products,
-  );
-});
+      return _EditCashSaleBootstrap(
+        invoiceNumber: invoice['invoice_number'] as String? ?? '',
+        notes: invoice['notes'] as String?,
+        lines: lines,
+        products: products,
+      );
+    });
 
 class _EditCartLine {
   _EditCartLine({
     required this.product,
     required double quantity,
     required double unitPrice,
-  })
-      : quantityController =
-            TextEditingController(text: quantity.toStringAsFixed(0)),
-        amountController =
-            TextEditingController(text: unitPrice.toStringAsFixed(0));
+  }) : quantityController = TextEditingController(
+         text: quantity.toStringAsFixed(0),
+       ),
+       amountController = TextEditingController(
+         text: unitPrice.toStringAsFixed(0),
+       );
 
   final _EditProduct product;
   final TextEditingController quantityController;
@@ -129,16 +125,16 @@ class _EditCartLine {
       double.tryParse(amountController.text.trim()) ?? 0;
 
   double get unitPrice => resolveLineAmounts(
-        quantity: quantity,
-        mode: amountMode,
-        enteredAmount: enteredAmount,
-      ).unitPrice;
+    quantity: quantity,
+    mode: amountMode,
+    enteredAmount: enteredAmount,
+  ).unitPrice;
 
   double get lineTotal => resolveLineAmounts(
-        quantity: quantity,
-        mode: amountMode,
-        enteredAmount: enteredAmount,
-      ).lineTotal;
+    quantity: quantity,
+    mode: amountMode,
+    enteredAmount: enteredAmount,
+  ).lineTotal;
 
   void dispose() {
     quantityController.dispose();
@@ -152,8 +148,7 @@ class EditCashSaleScreen extends ConsumerStatefulWidget {
   final String invoiceId;
 
   @override
-  ConsumerState<EditCashSaleScreen> createState() =>
-      _EditCashSaleScreenState();
+  ConsumerState<EditCashSaleScreen> createState() => _EditCashSaleScreenState();
 }
 
 class _EditCashSaleScreenState extends ConsumerState<EditCashSaleScreen> {
@@ -259,21 +254,23 @@ class _EditCashSaleScreenState extends ConsumerState<EditCashSaleScreen> {
           )
           .toList();
 
-      await ref.read(supabaseClientProvider).rpc(
-        'update_cash_invoice',
-        params: {
-          'p_invoice_id': widget.invoiceId,
-          'p_lines': lines,
-          'p_notes': _notesController.text.trim().isEmpty
-              ? null
-              : _notesController.text.trim(),
-        },
-      );
+      await ref
+          .read(supabaseClientProvider)
+          .rpc(
+            'update_cash_invoice',
+            params: {
+              'p_invoice_id': widget.invoiceId,
+              'p_lines': lines,
+              'p_notes': _notesController.text.trim().isEmpty
+                  ? null
+                  : _notesController.text.trim(),
+            },
+          );
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cash sale updated')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Cash sale updated')));
       Navigator.of(context).pop(true);
     } on PostgrestException catch (e) {
       if (mounted) setState(() => _errorMessage = e.message);
@@ -290,8 +287,9 @@ class _EditCashSaleScreenState extends ConsumerState<EditCashSaleScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bootstrapAsync =
-        ref.watch(editCashSaleBootstrapProvider(widget.invoiceId));
+    final bootstrapAsync = ref.watch(
+      editCashSaleBootstrapProvider(widget.invoiceId),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -326,8 +324,8 @@ class _EditCashSaleScreenState extends ConsumerState<EditCashSaleScreen> {
           final filtered = query.isEmpty
               ? bootstrap.products
               : bootstrap.products
-                  .where((p) => p.name.toLowerCase().contains(query))
-                  .toList();
+                    .where((p) => p.name.toLowerCase().contains(query))
+                    .toList();
 
           return SafeArea(
             child: Column(
@@ -380,14 +378,18 @@ class _EditCashSaleScreenState extends ConsumerState<EditCashSaleScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     children: [
                       if (_cart.isNotEmpty) ...[
-                        Text('Cart',
-                            style: Theme.of(context).textTheme.titleSmall),
+                        Text(
+                          'Cart',
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
                         const SizedBox(height: 4),
                         ..._cart.map(_buildCartRow),
                         const Divider(height: 24),
                       ],
-                      Text('Products',
-                          style: Theme.of(context).textTheme.titleSmall),
+                      Text(
+                        'Products',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
                       const SizedBox(height: 4),
                       ...filtered.map(
                         (product) => ListTile(
@@ -425,9 +427,10 @@ class _EditCashSaleScreenState extends ConsumerState<EditCashSaleScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('Total',
-                                style:
-                                    Theme.of(context).textTheme.titleMedium),
+                            Text(
+                              'Total',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
                             Text(
                               formatRwf(_grandTotal),
                               style: Theme.of(context).textTheme.titleLarge,
@@ -482,21 +485,24 @@ class _EditCashSaleScreenState extends ConsumerState<EditCashSaleScreen> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.remove_circle_outline),
-                  onPressed:
-                      _isSubmitting ? null : () => _changeQuantity(line, -1),
+                  onPressed: _isSubmitting
+                      ? null
+                      : () => _changeQuantity(line, -1),
                 ),
                 IconButton(
                   icon: const Icon(Icons.add_circle_outline),
-                  onPressed:
-                      _isSubmitting ? null : () => _changeQuantity(line, 1),
+                  onPressed: _isSubmitting
+                      ? null
+                      : () => _changeQuantity(line, 1),
                 ),
               ],
             ),
             TextField(
               controller: line.quantityController,
               enabled: !_isSubmitting,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               decoration: InputDecoration(
                 isDense: true,
                 labelText: 'Quantity',
@@ -515,8 +521,9 @@ class _EditCashSaleScreenState extends ConsumerState<EditCashSaleScreen> {
             TextField(
               controller: line.amountController,
               enabled: !_isSubmitting,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               decoration: InputDecoration(
                 isDense: true,
                 labelText: line.amountMode == LineAmountMode.unitPrice

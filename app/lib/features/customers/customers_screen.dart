@@ -102,34 +102,34 @@ final customerListProvider = FutureProvider.autoDispose<List<CustomerListItem>>(
       .toList();
 });
 
-final supplierListProvider = FutureProvider.autoDispose<List<SupplierListItem>>((
-  ref,
-) async {
-  final client = ref.read(supabaseClientProvider);
-  final suppliers = await ref.watch(supplierPartiesProvider.future);
-  if (suppliers.isEmpty) return [];
+final supplierListProvider = FutureProvider.autoDispose<List<SupplierListItem>>(
+  (ref) async {
+    final client = ref.read(supabaseClientProvider);
+    final suppliers = await ref.watch(supplierPartiesProvider.future);
+    if (suppliers.isEmpty) return [];
 
-  final partyRows = await client
-      .from('parties')
-      .select('id, party_code, party_name, status')
-      .isFilter('deleted_at', null);
+    final partyRows = await client
+        .from('parties')
+        .select('id, party_code, party_name, status')
+        .isFilter('deleted_at', null);
 
-  final metaById = <String, Map<String, dynamic>>{};
-  for (final row in partyRows as List<dynamic>) {
-    final map = row as Map<String, dynamic>;
-    metaById[map['id'] as String] = map;
-  }
+    final metaById = <String, Map<String, dynamic>>{};
+    for (final row in partyRows as List<dynamic>) {
+      final map = row as Map<String, dynamic>;
+      metaById[map['id'] as String] = map;
+    }
 
-  return suppliers.map((supplier) {
-    final meta = metaById[supplier.id];
-    return SupplierListItem(
-      partyId: supplier.id,
-      partyCode: meta?['party_code'] as String? ?? '',
-      partyName: supplier.name,
-      status: meta?['status'] as String? ?? 'unknown',
-    );
-  }).toList();
-});
+    return suppliers.map((supplier) {
+      final meta = metaById[supplier.id];
+      return SupplierListItem(
+        partyId: supplier.id,
+        partyCode: meta?['party_code'] as String? ?? '',
+        partyName: supplier.name,
+        status: meta?['status'] as String? ?? 'unknown',
+      );
+    }).toList();
+  },
+);
 
 class CustomersScreen extends ConsumerStatefulWidget {
   const CustomersScreen({super.key});
@@ -243,34 +243,36 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                                       children: [
                                         Text(
                                           'Owed: ${formatRwf(customer.balance)}',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .labelLarge,
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.labelLarge,
                                         ),
                                         Text(
                                           'Opening ${formatRwf(customer.openingBalance)}',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall,
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.bodySmall,
                                         ),
                                         Text(
                                           'Invoiced ${formatRwf(customer.totalInvoiced)} · Paid ${formatRwf(customer.totalPaid)}',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall,
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.bodySmall,
                                         ),
                                       ],
                                     ),
                                     onTap: () async {
                                       final updated =
-                                          await Navigator.of(context)
-                                              .push<bool>(
-                                        MaterialPageRoute<bool>(
-                                          builder: (_) => EditCustomerScreen(
-                                            partyId: customer.partyId,
-                                          ),
-                                        ),
-                                      );
+                                          await Navigator.of(
+                                            context,
+                                          ).push<bool>(
+                                            MaterialPageRoute<bool>(
+                                              builder: (_) =>
+                                                  EditCustomerScreen(
+                                                    partyId: customer.partyId,
+                                                  ),
+                                            ),
+                                          );
                                       if (updated == true) {
                                         ref.invalidate(customerListProvider);
                                       }
@@ -310,14 +312,16 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                                     ),
                                     onTap: () async {
                                       final updated =
-                                          await Navigator.of(context)
-                                              .push<bool>(
-                                        MaterialPageRoute<bool>(
-                                          builder: (_) => EditSupplierScreen(
-                                            partyId: supplier.partyId,
-                                          ),
-                                        ),
-                                      );
+                                          await Navigator.of(
+                                            context,
+                                          ).push<bool>(
+                                            MaterialPageRoute<bool>(
+                                              builder: (_) =>
+                                                  EditSupplierScreen(
+                                                    partyId: supplier.partyId,
+                                                  ),
+                                            ),
+                                          );
                                       if (updated == true) {
                                         ref.invalidate(supplierListProvider);
                                         ref.invalidate(supplierPartiesProvider);

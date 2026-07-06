@@ -40,43 +40,43 @@ typedef StockMovementFilter = ({
 
 final stockMovementHistoryProvider = FutureProvider.autoDispose
     .family<List<StockMovementItem>, StockMovementFilter>((ref, filter) async {
-  var query = ref
-      .read(supabaseClientProvider)
-      .from('stock_movements')
-      .select(
-        'movement_date, movement_type, quantity_in, quantity_out, reference_number, reason, '
-        'products(product_code, product_name), warehouses(name)',
-      )
-      .isFilter('voided_at', null)
-      .gte('movement_date', formatIsoDate(filter.start))
-      .lte('movement_date', formatIsoDate(filter.end));
+      var query = ref
+          .read(supabaseClientProvider)
+          .from('stock_movements')
+          .select(
+            'movement_date, movement_type, quantity_in, quantity_out, reference_number, reason, '
+            'products(product_code, product_name), warehouses(name)',
+          )
+          .isFilter('voided_at', null)
+          .gte('movement_date', formatIsoDate(filter.start))
+          .lte('movement_date', formatIsoDate(filter.end));
 
-  if (filter.productId != null) {
-    query = query.eq('product_id', filter.productId!);
-  }
+      if (filter.productId != null) {
+        query = query.eq('product_id', filter.productId!);
+      }
 
-  final rows = await query
-      .order('movement_date', ascending: false)
-      .order('created_at', ascending: false)
-      .limit(500);
+      final rows = await query
+          .order('movement_date', ascending: false)
+          .order('created_at', ascending: false)
+          .limit(500);
 
-  return (rows as List<dynamic>).map((row) {
-    final map = row as Map<String, dynamic>;
-    final product = map['products'] as Map<String, dynamic>?;
-    final warehouse = map['warehouses'] as Map<String, dynamic>?;
-    return StockMovementItem(
-      movementDate: map['movement_date'] as String? ?? '',
-      movementType: map['movement_type'] as String? ?? '',
-      productName: product?['product_name'] as String? ?? 'Unknown product',
-      productCode: product?['product_code'] as String? ?? '',
-      warehouseName: warehouse?['name'] as String? ?? 'Unknown warehouse',
-      quantityIn: (map['quantity_in'] as num?)?.toDouble() ?? 0,
-      quantityOut: (map['quantity_out'] as num?)?.toDouble() ?? 0,
-      referenceNumber: map['reference_number'] as String?,
-      reason: map['reason'] as String?,
-    );
-  }).toList();
-});
+      return (rows as List<dynamic>).map((row) {
+        final map = row as Map<String, dynamic>;
+        final product = map['products'] as Map<String, dynamic>?;
+        final warehouse = map['warehouses'] as Map<String, dynamic>?;
+        return StockMovementItem(
+          movementDate: map['movement_date'] as String? ?? '',
+          movementType: map['movement_type'] as String? ?? '',
+          productName: product?['product_name'] as String? ?? 'Unknown product',
+          productCode: product?['product_code'] as String? ?? '',
+          warehouseName: warehouse?['name'] as String? ?? 'Unknown warehouse',
+          quantityIn: (map['quantity_in'] as num?)?.toDouble() ?? 0,
+          quantityOut: (map['quantity_out'] as num?)?.toDouble() ?? 0,
+          referenceNumber: map['reference_number'] as String?,
+          reason: map['reason'] as String?,
+        );
+      }).toList();
+    });
 
 class StockMovementHistoryScreen extends ConsumerStatefulWidget {
   const StockMovementHistoryScreen({super.key});
@@ -164,7 +164,9 @@ class _StockMovementHistoryScreenState
                     ? ListView(
                         children: const [
                           SizedBox(height: 120),
-                          Center(child: Text('No stock movements in this period')),
+                          Center(
+                            child: Text('No stock movements in this period'),
+                          ),
                         ],
                       )
                     : ListView.separated(
@@ -182,7 +184,9 @@ class _StockMovementHistoryScreenState
                           return Card(
                             child: ListTile(
                               leading: Icon(
-                                isIn ? Icons.arrow_downward : Icons.arrow_upward,
+                                isIn
+                                    ? Icons.arrow_downward
+                                    : Icons.arrow_upward,
                                 color: isIn
                                     ? theme.colorScheme.primary
                                     : theme.colorScheme.error,

@@ -4,8 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-
-
 import '../../core/auth/role_providers.dart';
 
 import '../../core/format/money_format.dart';
@@ -16,12 +14,8 @@ import '../../core/widgets/main_menu_nav_action.dart';
 
 import 'edit_cash_sale_screen.dart';
 
-
-
 class _SaleLineItem {
-
   const _SaleLineItem({
-
     required this.lineNumber,
 
     required this.description,
@@ -31,10 +25,7 @@ class _SaleLineItem {
     required this.unitPrice,
 
     required this.lineTotal,
-
   });
-
-
 
   final int lineNumber;
 
@@ -45,15 +36,10 @@ class _SaleLineItem {
   final double unitPrice;
 
   final double lineTotal;
-
 }
 
-
-
 class _SaleDetail {
-
   const _SaleDetail({
-
     required this.invoiceNumber,
 
     required this.invoiceDate,
@@ -75,10 +61,7 @@ class _SaleDetail {
     required this.lines,
 
     required this.hasPaymentAllocations,
-
   });
-
-
 
   final String invoiceNumber;
 
@@ -102,389 +85,258 @@ class _SaleDetail {
 
   final bool hasPaymentAllocations;
 
-
-
   bool get isCash => saleType == 'cash';
 
-
-
   bool get canEditCash => isCash && !hasPaymentAllocations;
-
 }
 
+final saleDetailProvider = FutureProvider.autoDispose
+    .family<_SaleDetail, String>((ref, invoiceId) async {
+      final client = ref.read(supabaseClientProvider);
 
+      final results = await Future.wait<dynamic>([
+        client
+            .from('invoices')
+            .select(
+              'invoice_number, invoice_date, due_date, sale_type, total_amount, '
+              'paid_amount, balance_amount, notes, parties(party_name)',
+            )
+            .eq('id', invoiceId)
+            .limit(1),
 
-final saleDetailProvider =
+        client
+            .from('invoice_lines')
+            .select(
+              'line_number, description, quantity, unit_price, line_total',
+            )
+            .eq('invoice_id', invoiceId)
+            .order('line_number'),
 
-    FutureProvider.autoDispose.family<_SaleDetail, String>((ref, invoiceId) async {
+        client
+            .from('payment_allocations')
+            .select('id, payments!inner(status, voided_at)')
+            .eq('invoice_id', invoiceId),
+      ]);
 
-  final client = ref.read(supabaseClientProvider);
+      final invoiceRows = results[0] as List<dynamic>;
 
+      if (invoiceRows.isEmpty) throw Exception('Sale not found.');
 
+      final invoice = invoiceRows.first as Map<String, dynamic>;
 
-  final results = await Future.wait<dynamic>([
+      final party = invoice['parties'] as Map<String, dynamic>?;
 
-    client
+      final lineRows = results[1] as List<dynamic>;
 
-        .from('invoices')
+      final allocationRows = results[2] as List<dynamic>;
 
-        .select(
+      var hasPaymentAllocations = false;
 
-          'invoice_number, invoice_date, due_date, sale_type, total_amount, '
+      for (final row in allocationRows) {
+        final map = row as Map<String, dynamic>;
 
-          'paid_amount, balance_amount, notes, parties(party_name)',
+        final payment = map['payments'] as Map<String, dynamic>?;
 
-        )
+        if (payment?['status'] == 'posted' && payment?['voided_at'] == null) {
+          hasPaymentAllocations = true;
 
-        .eq('id', invoiceId)
+          break;
+        }
+      }
 
-        .limit(1),
+      final lines = lineRows.map((row) {
+        final map = row as Map<String, dynamic>;
 
-    client
+        return _SaleLineItem(
+          lineNumber: (map['line_number'] as num?)?.toInt() ?? 0,
 
-        .from('invoice_lines')
+          description: map['description'] as String? ?? 'Line item',
 
-        .select('line_number, description, quantity, unit_price, line_total')
+          quantity: (map['quantity'] as num?)?.toDouble() ?? 0,
 
-        .eq('invoice_id', invoiceId)
+          unitPrice: (map['unit_price'] as num?)?.toDouble() ?? 0,
 
-        .order('line_number'),
+          lineTotal: (map['line_total'] as num?)?.toDouble() ?? 0,
+        );
+      }).toList();
 
-    client
+      return _SaleDetail(
+        invoiceNumber: invoice['invoice_number'] as String? ?? '',
 
-        .from('payment_allocations')
+        invoiceDate: invoice['invoice_date'] as String? ?? '',
 
-        .select('id, payments!inner(status, voided_at)')
+        dueDate: invoice['due_date'] as String?,
 
-        .eq('invoice_id', invoiceId),
+        saleType: invoice['sale_type'] as String? ?? 'cash',
 
-  ]);
+        partyName: party?['party_name'] as String? ?? 'Walk-in',
 
+        totalAmount: (invoice['total_amount'] as num?)?.toDouble() ?? 0,
 
+        paidAmount: (invoice['paid_amount'] as num?)?.toDouble() ?? 0,
 
-  final invoiceRows = results[0] as List<dynamic>;
+        balanceAmount: (invoice['balance_amount'] as num?)?.toDouble() ?? 0,
 
-  if (invoiceRows.isEmpty) throw Exception('Sale not found.');
+        notes: invoice['notes'] as String?,
 
-  final invoice = invoiceRows.first as Map<String, dynamic>;
+        lines: lines,
 
-  final party = invoice['parties'] as Map<String, dynamic>?;
-
-
-
-  final lineRows = results[1] as List<dynamic>;
-
-  final allocationRows = results[2] as List<dynamic>;
-
-
-
-  var hasPaymentAllocations = false;
-
-  for (final row in allocationRows) {
-
-    final map = row as Map<String, dynamic>;
-
-    final payment = map['payments'] as Map<String, dynamic>?;
-
-    if (payment?['status'] == 'posted' && payment?['voided_at'] == null) {
-
-      hasPaymentAllocations = true;
-
-      break;
-
-    }
-
-  }
-
-
-
-  final lines = lineRows.map((row) {
-
-    final map = row as Map<String, dynamic>;
-
-    return _SaleLineItem(
-
-      lineNumber: (map['line_number'] as num?)?.toInt() ?? 0,
-
-      description: map['description'] as String? ?? 'Line item',
-
-      quantity: (map['quantity'] as num?)?.toDouble() ?? 0,
-
-      unitPrice: (map['unit_price'] as num?)?.toDouble() ?? 0,
-
-      lineTotal: (map['line_total'] as num?)?.toDouble() ?? 0,
-
-    );
-
-  }).toList();
-
-
-
-  return _SaleDetail(
-
-    invoiceNumber: invoice['invoice_number'] as String? ?? '',
-
-    invoiceDate: invoice['invoice_date'] as String? ?? '',
-
-    dueDate: invoice['due_date'] as String?,
-
-    saleType: invoice['sale_type'] as String? ?? 'cash',
-
-    partyName: party?['party_name'] as String? ?? 'Walk-in',
-
-    totalAmount: (invoice['total_amount'] as num?)?.toDouble() ?? 0,
-
-    paidAmount: (invoice['paid_amount'] as num?)?.toDouble() ?? 0,
-
-    balanceAmount: (invoice['balance_amount'] as num?)?.toDouble() ?? 0,
-
-    notes: invoice['notes'] as String?,
-
-    lines: lines,
-
-    hasPaymentAllocations: hasPaymentAllocations,
-
-  );
-
-});
-
-
+        hasPaymentAllocations: hasPaymentAllocations,
+      );
+    });
 
 class SaleDetailScreen extends ConsumerStatefulWidget {
-
   const SaleDetailScreen({required this.invoiceId, super.key});
-
-
 
   final String invoiceId;
 
-
-
   @override
-
   ConsumerState<SaleDetailScreen> createState() => _SaleDetailScreenState();
-
 }
 
-
-
 class _SaleDetailScreenState extends ConsumerState<SaleDetailScreen> {
-
   bool _isVoiding = false;
 
-
-
   Future<bool> _confirmVoid(_SaleDetail detail) async {
-
     final result = await showDialog<bool>(
-
       context: context,
 
       builder: (context) => AlertDialog(
-
         title: const Text('Delete sale?'),
 
         content: Text(
-
           detail.isCash
-
               ? 'This removes the cash sale and restores stock. '
-
-                  'You can also use Edit to fix quantities or prices instead.'
-
+                    'You can also use Edit to fix quantities or prices instead.'
               : 'This voids the credit sale and restores stock. '
-
-                  'If clearing-debt payments were applied, void those first '
-
-                  'from Payment List.',
-
+                    'If clearing-debt payments were applied, void those first '
+                    'from Payment List.',
         ),
 
         actions: [
-
           TextButton(
-
             onPressed: () => Navigator.of(context).pop(false),
 
             child: const Text('Cancel'),
-
           ),
 
           FilledButton(
-
             onPressed: () => Navigator.of(context).pop(true),
 
             child: const Text('Delete'),
-
           ),
-
         ],
-
       ),
-
     );
 
     return result ?? false;
-
   }
 
-
-
   Future<void> _voidSale(_SaleDetail detail) async {
-
     if (!await _confirmVoid(detail)) return;
-
-
 
     setState(() => _isVoiding = true);
 
     try {
-
-      await ref.read(supabaseClientProvider).rpc(
-
-        'void_invoice',
-
-        params: {'p_invoice_id': widget.invoiceId},
-
-      );
+      await ref
+          .read(supabaseClientProvider)
+          .rpc('void_invoice', params: {'p_invoice_id': widget.invoiceId});
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-
-        const SnackBar(content: Text('Sale deleted')),
-
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Sale deleted')));
 
       Navigator.of(context).pop(true);
-
     } on PostgrestException catch (e) {
-
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-
-        SnackBar(content: Text(e.message)),
-
-      );
-
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
     } finally {
-
       if (mounted) setState(() => _isVoiding = false);
-
     }
-
   }
 
-
-
   Future<void> _editCashSale() async {
-
     final updated = await Navigator.of(context).push<bool>(
-
       MaterialPageRoute<bool>(
-
         builder: (_) => EditCashSaleScreen(invoiceId: widget.invoiceId),
-
       ),
-
     );
 
     if (updated == true && mounted) {
-
       ref.invalidate(saleDetailProvider(widget.invoiceId));
-
     }
-
   }
 
-
-
   @override
-
   Widget build(BuildContext context) {
-
     final detailAsync = ref.watch(saleDetailProvider(widget.invoiceId));
 
     final canVoidAsync = ref.watch(canVoidTransactionsProvider);
 
     final canVoid = canVoidAsync.asData?.value ?? false;
 
-
-
     return Scaffold(
-
       appBar: AppBar(
-
         title: const Text('Sale Detail'),
 
         actions: const [MainMenuNavAction()],
-
       ),
 
       body: detailAsync.when(
-
         loading: () => const Center(child: CircularProgressIndicator()),
 
         error: (error, _) => Center(
-
           child: Padding(
-
             padding: const EdgeInsets.all(24),
 
             child: Column(
-
               mainAxisSize: MainAxisSize.min,
 
               children: [
-
                 const Icon(Icons.error_outline, size: 48),
 
                 const SizedBox(height: 12),
 
-                Text('Could not load sale: $error', textAlign: TextAlign.center),
+                Text(
+                  'Could not load sale: $error',
+                  textAlign: TextAlign.center,
+                ),
 
                 const SizedBox(height: 16),
 
                 FilledButton(
-
                   onPressed: () =>
-
                       ref.invalidate(saleDetailProvider(widget.invoiceId)),
 
                   child: const Text('Try again'),
-
                 ),
-
               ],
-
             ),
-
           ),
-
         ),
 
         data: (detail) => ListView(
-
           padding: const EdgeInsets.all(16),
 
           children: [
-
             Card(
-
               child: Padding(
-
                 padding: const EdgeInsets.all(16),
 
                 child: Column(
-
                   crossAxisAlignment: CrossAxisAlignment.start,
 
                   children: [
+                    Text(
+                      detail.invoiceNumber,
 
-                    Text(detail.invoiceNumber,
-
-                        style: Theme.of(context).textTheme.titleLarge),
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
 
                     const SizedBox(height: 8),
 
@@ -503,37 +355,25 @@ class _SaleDetailScreenState extends ConsumerState<SaleDetailScreen> {
                     Text('Paid: ${formatRwf(detail.paidAmount)}'),
 
                     Text(
-
                       'Balance: ${formatRwf(detail.balanceAmount)}',
 
                       style: detail.balanceAmount > 0
-
                           ? TextStyle(
-
                               color: Theme.of(context).colorScheme.error,
 
                               fontWeight: FontWeight.w600,
-
                             )
-
                           : null,
-
                     ),
 
                     if (detail.notes != null && detail.notes!.isNotEmpty) ...[
-
                       const SizedBox(height: 8),
 
                       Text('Notes: ${detail.notes}'),
-
                     ],
-
                   ],
-
                 ),
-
               ),
-
             ),
 
             const SizedBox(height: 16),
@@ -543,149 +383,94 @@ class _SaleDetailScreenState extends ConsumerState<SaleDetailScreen> {
             const SizedBox(height: 8),
 
             if (detail.lines.isEmpty)
-
               const Text('No line items')
-
             else
-
               Card(
-
                 child: Column(
-
                   children: [
-
                     for (var i = 0; i < detail.lines.length; i++) ...[
-
                       if (i > 0) const Divider(height: 1),
 
                       ListTile(
-
                         title: Text(detail.lines[i].description),
 
                         subtitle: Text(
-
                           'Qty ${detail.lines[i].quantity.toStringAsFixed(0)} '
-
                           '@ ${formatRwf(detail.lines[i].unitPrice)}',
-
                         ),
 
                         trailing: Text(formatRwf(detail.lines[i].lineTotal)),
-
                       ),
-
                     ],
-
                   ],
-
                 ),
-
               ),
 
             if (canVoid) ...[
-
               const SizedBox(height: 24),
 
               Card(
-
-                color: Theme.of(context)
-
-                    .colorScheme
-
-                    .surfaceContainerHighest
-
-                    .withValues(alpha: 0.6),
+                color: Theme.of(
+                  context,
+                ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
 
                 child: Padding(
-
                   padding: const EdgeInsets.all(12),
 
                   child: Text(
-
                     detail.canEditCash
-
                         ? 'Cash sale: tap Edit to fix products, quantities, or '
-
-                            'prices. Or Delete to remove it entirely.'
-
+                              'prices. Or Delete to remove it entirely.'
                         : detail.hasPaymentAllocations
-
-                            ? 'This sale has clearing-debt payments applied. '
-
-                                'Void those from Payment List before deleting.'
-
-                            : 'Credit sale: delete only after voiding any '
-
-                                'payments applied.',
-
+                        ? 'This sale has clearing-debt payments applied. '
+                              'Void those from Payment List before deleting.'
+                        : 'Credit sale: delete only after voiding any '
+                              'payments applied.',
                   ),
-
                 ),
-
               ),
 
               if (detail.canEditCash) ...[
-
                 const SizedBox(height: 12),
 
                 FilledButton.icon(
-
                   onPressed: _editCashSale,
 
                   icon: const Icon(Icons.edit_outlined),
 
                   label: const Text('Edit cash sale'),
-
                 ),
-
               ],
 
               const SizedBox(height: 12),
 
               OutlinedButton.icon(
-
                 onPressed: (_isVoiding || detail.hasPaymentAllocations)
                     ? null
                     : () => _voidSale(detail),
 
                 icon: _isVoiding
-
                     ? const SizedBox(
-
                         width: 18,
 
                         height: 18,
 
                         child: CircularProgressIndicator(strokeWidth: 2),
-
                       )
-
                     : const Icon(Icons.delete_outline),
 
                 label: const Text('Delete sale'),
 
                 style: OutlinedButton.styleFrom(
-
                   foregroundColor: Theme.of(context).colorScheme.error,
 
                   side: BorderSide(color: Theme.of(context).colorScheme.error),
-
                 ),
-
               ),
-
             ],
-
           ],
-
         ),
-
       ),
-
     );
-
   }
-
 }
-
-

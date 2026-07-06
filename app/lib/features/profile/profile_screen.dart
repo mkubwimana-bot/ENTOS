@@ -113,23 +113,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final client = ref.read(supabaseClientProvider);
     try {
       final phone = _phoneController.text.trim();
-      await client.from('app_users').update({
-        'full_name': _fullNameController.text.trim(),
-        'phone': phone.isEmpty ? null : phone,
-        'preferred_language_code': _languageCode,
-      }).eq('id', profile.userId);
+      await client
+          .from('app_users')
+          .update({
+            'full_name': _fullNameController.text.trim(),
+            'phone': phone.isEmpty ? null : phone,
+            'preferred_language_code': _languageCode,
+          })
+          .eq('id', profile.userId);
 
       if (!mounted) return;
       ref.invalidate(profileProvider);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile saved.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Profile saved.')));
     } on PostgrestException catch (e) {
       if (mounted) setState(() => _errorMessage = e.message);
     } catch (_) {
       if (mounted) {
-        setState(() =>
-            _errorMessage = 'Could not save profile. Please try again.');
+        setState(
+          () => _errorMessage = 'Could not save profile. Please try again.',
+        );
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -142,22 +146,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     setState(() => _isChangingPassword = true);
     try {
-      await ref.read(supabaseClientProvider).auth.updateUser(
-            UserAttributes(password: _passwordController.text),
-          );
+      await ref
+          .read(supabaseClientProvider)
+          .auth
+          .updateUser(UserAttributes(password: _passwordController.text));
       if (!mounted) return;
       _passwordController.clear();
       _confirmPasswordController.clear();
       _passwordFormKey.currentState!.reset();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password updated.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Password updated.')));
     } on AuthException catch (e) {
       if (mounted) setState(() => _passwordError = e.message);
     } catch (_) {
       if (mounted) {
-        setState(() =>
-            _passwordError = 'Could not update password. Please try again.');
+        setState(
+          () => _passwordError = 'Could not update password. Please try again.',
+        );
       }
     } finally {
       if (mounted) setState(() => _isChangingPassword = false);
@@ -194,8 +200,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               children: [
                 const Icon(Icons.error_outline, size: 48),
                 const SizedBox(height: 12),
-                Text('Could not load profile: $error',
-                    textAlign: TextAlign.center),
+                Text(
+                  'Could not load profile: $error',
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 16),
                 FilledButton(
                   onPressed: () => ref.invalidate(profileProvider),
@@ -213,8 +221,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('Account',
-                      style: Theme.of(context).textTheme.titleMedium),
+                  Text(
+                    'Account',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                   const SizedBox(height: 8),
                   Form(
                     key: _formKey,
@@ -230,8 +240,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           ),
                           validator: (value) =>
                               (value == null || value.trim().isEmpty)
-                                  ? 'Enter your name'
-                                  : null,
+                              ? 'Enter your name'
+                              : null,
                         ),
                         const SizedBox(height: 12),
                         TextFormField(
@@ -261,7 +271,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           onChanged: _isSaving
                               ? null
                               : (value) => setState(
-                                  () => _languageCode = value ?? 'en'),
+                                  () => _languageCode = value ?? 'en',
+                                ),
                         ),
                         const SizedBox(height: 12),
                         InputDecorator(
@@ -283,13 +294,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           Text(
                             _errorMessage!,
                             style: TextStyle(
-                                color: Theme.of(context).colorScheme.error),
+                              color: Theme.of(context).colorScheme.error,
+                            ),
                           ),
                         ],
                         const SizedBox(height: 16),
                         FilledButton(
-                          onPressed:
-                              _isSaving ? null : () => _saveProfile(profile),
+                          onPressed: _isSaving
+                              ? null
+                              : () => _saveProfile(profile),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             child: _isSaving
@@ -297,7 +310,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                     height: 20,
                                     width: 20,
                                     child: CircularProgressIndicator(
-                                        strokeWidth: 2),
+                                      strokeWidth: 2,
+                                    ),
                                   )
                                 : const Text('Save profile'),
                           ),
@@ -306,8 +320,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                   ),
                   const Divider(height: 40),
-                  Text('Change password',
-                      style: Theme.of(context).textTheme.titleMedium),
+                  Text(
+                    'Change password',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                   const SizedBox(height: 8),
                   Form(
                     key: _passwordFormKey,
@@ -354,13 +370,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           Text(
                             _passwordError!,
                             style: TextStyle(
-                                color: Theme.of(context).colorScheme.error),
+                              color: Theme.of(context).colorScheme.error,
+                            ),
                           ),
                         ],
                         const SizedBox(height: 16),
                         OutlinedButton(
-                          onPressed:
-                              _isChangingPassword ? null : _changePassword,
+                          onPressed: _isChangingPassword
+                              ? null
+                              : _changePassword,
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             child: _isChangingPassword
@@ -368,7 +386,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                     height: 20,
                                     width: 20,
                                     child: CircularProgressIndicator(
-                                        strokeWidth: 2),
+                                      strokeWidth: 2,
+                                    ),
                                   )
                                 : const Text('Update password'),
                           ),

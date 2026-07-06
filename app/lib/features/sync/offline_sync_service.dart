@@ -45,11 +45,13 @@ Future<OfflineSyncResult> syncOfflineSales({
           'p_notes': sale.notes,
           'p_captured_at': sale.capturedAt.toIso8601String(),
           'p_lines': sale.lines
-              .map((l) => {
-                    'product_id': l.productId,
-                    'quantity': l.quantity,
-                    'unit_price': l.unitPrice,
-                  })
+              .map(
+                (l) => {
+                  'product_id': l.productId,
+                  'quantity': l.quantity,
+                  'unit_price': l.unitPrice,
+                },
+              )
               .toList(),
         },
       );

@@ -40,38 +40,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   List<HomeSubMenuItem> _settingsItems() => [
-        HomeSubMenuItem(
-          label: 'Business Setup',
-          icon: Icons.storefront_outlined,
-          onTap: (context, _) async {
-            await Navigator.of(context).push<void>(
-              MaterialPageRoute<void>(
-                builder: (_) => const BusinessSetupScreen(),
-              ),
-            );
-          },
-        ),
-        HomeSubMenuItem(
-          label: 'Subscription',
-          icon: Icons.card_membership_outlined,
-          onTap: (context, _) async {
-            await Navigator.of(context).push<void>(
-              MaterialPageRoute<void>(
-                builder: (_) => const SubscriptionStatusScreen(),
-              ),
-            );
-          },
-        ),
-        HomeSubMenuItem(
-          label: 'My Profile',
-          icon: Icons.person_outline,
-          onTap: (context, _) async {
-            await Navigator.of(context).push<void>(
-              MaterialPageRoute<void>(builder: (_) => const ProfileScreen()),
-            );
-          },
-        ),
-      ];
+    HomeSubMenuItem(
+      label: 'Business Setup',
+      icon: Icons.storefront_outlined,
+      onTap: (context, _) async {
+        await Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(builder: (_) => const BusinessSetupScreen()),
+        );
+      },
+    ),
+    HomeSubMenuItem(
+      label: 'Subscription',
+      icon: Icons.card_membership_outlined,
+      onTap: (context, _) async {
+        await Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(
+            builder: (_) => const SubscriptionStatusScreen(),
+          ),
+        );
+      },
+    ),
+    HomeSubMenuItem(
+      label: 'My Profile',
+      icon: Icons.person_outline,
+      onTap: (context, _) async {
+        await Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(builder: (_) => const ProfileScreen()),
+        );
+      },
+    ),
+  ];
 
   void _openSalesTab() => setState(() => _tabIndex = 1);
 
@@ -80,8 +78,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void _openReportsTab() => setState(() => _tabIndex = 3);
 
   List<HomeSubMenuItem> _moreItems() {
-    final pendingSync = ref.read(offlinePendingCountProvider).asData?.value ?? 0;
-    final syncIssues = ref.read(syncReviewIssueCountProvider).asData?.value ?? 0;
+    final pendingSync =
+        ref.read(offlinePendingCountProvider).asData?.value ?? 0;
+    final syncIssues =
+        ref.read(syncReviewIssueCountProvider).asData?.value ?? 0;
     return [
       HomeSubMenuItem(
         label: 'Full Dashboard',
@@ -262,8 +262,8 @@ class _HomeTabList extends ConsumerWidget {
                 child: Text(
                   title,
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               );
             }

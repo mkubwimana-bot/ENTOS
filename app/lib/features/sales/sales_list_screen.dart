@@ -116,7 +116,10 @@ class SalesListScreen extends ConsumerWidget {
               children: [
                 const Icon(Icons.error_outline, size: 48),
                 const SizedBox(height: 12),
-                Text('Could not load sales: $error', textAlign: TextAlign.center),
+                Text(
+                  'Could not load sales: $error',
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 16),
                 FilledButton(
                   onPressed: () => ref.invalidate(salesListProvider),
@@ -166,24 +169,24 @@ class SalesListScreen extends ConsumerWidget {
                             if (sale.balanceAmount > 0)
                               Text(
                                 'Owed ${formatRwf(sale.balanceAmount)}',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
+                                style: Theme.of(context).textTheme.bodySmall
                                     ?.copyWith(
-                                      color:
-                                          Theme.of(context).colorScheme.error,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.error,
                                     ),
                               ),
                           ],
                         ),
                         onTap: () async {
-                          final deleted = await Navigator.of(context).push<bool>(
-                            MaterialPageRoute<bool>(
-                              builder: (_) => SaleDetailScreen(
-                                invoiceId: sale.invoiceId,
-                              ),
-                            ),
-                          );
+                          final deleted = await Navigator.of(context)
+                              .push<bool>(
+                                MaterialPageRoute<bool>(
+                                  builder: (_) => SaleDetailScreen(
+                                    invoiceId: sale.invoiceId,
+                                  ),
+                                ),
+                              );
                           if (deleted == true) {
                             await _refresh(ref);
                           }

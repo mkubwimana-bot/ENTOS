@@ -18,13 +18,10 @@ String deriveProductCodePrefix(String productName) {
   if (words.isEmpty) return 'prd';
 
   if (words.length >= 3) {
-    return words
-        .take(3)
-        .map((word) {
-          final cleaned = lettersOnly(word);
-          return cleaned.isEmpty ? 'x' : cleaned[0];
-        })
-        .join();
+    return words.take(3).map((word) {
+      final cleaned = lettersOnly(word);
+      return cleaned.isEmpty ? 'x' : cleaned[0];
+    }).join();
   }
 
   if (words.length == 2) {

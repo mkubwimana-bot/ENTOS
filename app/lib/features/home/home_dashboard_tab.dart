@@ -55,10 +55,10 @@ class HomeDashboardTab extends ConsumerWidget {
     final syncSubtitle = pendingOfflineSales > 0
         ? '$pendingOfflineSales sale${pendingOfflineSales == 1 ? '' : 's'} waiting to sync'
         : isOffline
-            ? 'Connect to the internet to sync'
-            : summary!.pendingMobileCount > 0
-                ? '${summary.pendingMobileCount} item(s) waiting to sync'
-                : 'All sales synced';
+        ? 'Connect to the internet to sync'
+        : summary!.pendingMobileCount > 0
+        ? '${summary.pendingMobileCount} item(s) waiting to sync'
+        : 'All sales synced';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -84,19 +84,16 @@ class HomeDashboardTab extends ConsumerWidget {
           icon: const Icon(Icons.add),
           label: const Text(
             'New Sale',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
         ),
         const SizedBox(height: 24),
         Text(
           'Quick Actions',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF1A2332),
-              ),
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFF1A2332),
+          ),
         ),
         const SizedBox(height: 12),
         GridView.count(
@@ -145,9 +142,9 @@ class HomeDashboardTab extends ConsumerWidget {
         Text(
           'At a Glance',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF1A2332),
-              ),
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFF1A2332),
+          ),
         ),
         const SizedBox(height: 12),
         if (isOffline)
@@ -191,9 +188,9 @@ class HomeDashboardTab extends ConsumerWidget {
         Text(
           'More',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF1A2332),
-              ),
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFF1A2332),
+          ),
         ),
         const SizedBox(height: 8),
         _MoreTile(
@@ -244,8 +241,12 @@ class HomeDashboardTab extends ConsumerWidget {
                 error: (error, _) {
                   if (isOfflineError(error)) {
                     final email =
-                        ref.read(supabaseClientProvider).auth.currentUser?.email ??
-                            'there';
+                        ref
+                            .read(supabaseClientProvider)
+                            .auth
+                            .currentUser
+                            ?.email ??
+                        'there';
                     return _HomeHeader(
                       userName: email.split('@').first,
                       businessLine: 'Offline · sync when back online',
@@ -341,17 +342,17 @@ class _HomeHeader extends StatelessWidget {
               Text(
                 'Hello, $userName 👋',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF1A2332),
-                    ),
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1A2332),
+                ),
               ),
               const SizedBox(height: 2),
               Text(
                 businessLine,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: HomeDashboardTab.heroGreenDark,
-                      fontWeight: FontWeight.w500,
-                    ),
+                  color: HomeDashboardTab.heroGreenDark,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ],
           ),
@@ -416,8 +417,9 @@ class _TodaySalesCard extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: (offline ? const Color(0xFF546E7A) : HomeDashboardTab.heroGreen)
-                .withValues(alpha: 0.28),
+            color:
+                (offline ? const Color(0xFF546E7A) : HomeDashboardTab.heroGreen)
+                    .withValues(alpha: 0.28),
             blurRadius: 16,
             offset: const Offset(0, 8),
           ),
@@ -435,9 +437,9 @@ class _TodaySalesCard extends StatelessWidget {
                     Text(
                       offline ? 'You\'re offline' : 'Today\'s Sales',
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            color: Colors.white.withValues(alpha: 0.95),
-                            fontWeight: FontWeight.w600,
-                          ),
+                        color: Colors.white.withValues(alpha: 0.95),
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     if (!offline) ...[
                       const SizedBox(width: 4),
@@ -456,17 +458,17 @@ class _TodaySalesCard extends StatelessWidget {
                         ? '$pendingOfflineSales sale${pendingOfflineSales == 1 ? '' : 's'} saved on this device'
                         : 'Sales save on this device and sync when online',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                        ),
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
                   )
                 else
                   Text(
                     formatRwf(amount),
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                        ),
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 const SizedBox(height: 8),
                 if (offline)
@@ -648,7 +650,10 @@ class _GlanceCard extends StatelessWidget {
                 child: Icon(icon, color: accent, size: 20),
               ),
               const SizedBox(height: 12),
-              Text(title, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+              Text(
+                title,
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
               const SizedBox(height: 4),
               Text(
                 value,

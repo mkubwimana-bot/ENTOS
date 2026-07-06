@@ -33,8 +33,9 @@ const _paymentMethodLabels = <String, String>{
   'other': 'Other',
 };
 
-final paymentsListProvider =
-    FutureProvider.autoDispose<List<PaymentListItem>>((ref) async {
+final paymentsListProvider = FutureProvider.autoDispose<List<PaymentListItem>>((
+  ref,
+) async {
   final rows = await ref
       .read(supabaseClientProvider)
       .from('payments')
@@ -88,7 +89,10 @@ class PaymentsListScreen extends ConsumerWidget {
               children: [
                 const Icon(Icons.error_outline, size: 48),
                 const SizedBox(height: 12),
-                Text('Could not load payments: $error', textAlign: TextAlign.center),
+                Text(
+                  'Could not load payments: $error',
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 16),
                 FilledButton(
                   onPressed: () => ref.invalidate(paymentsListProvider),
@@ -124,13 +128,14 @@ class PaymentsListScreen extends ConsumerWidget {
                           style: Theme.of(context).textTheme.titleSmall,
                         ),
                         onTap: () async {
-                          final deleted = await Navigator.of(context).push<bool>(
-                            MaterialPageRoute<bool>(
-                              builder: (_) => PaymentDetailScreen(
-                                paymentId: payment.paymentId,
-                              ),
-                            ),
-                          );
+                          final deleted = await Navigator.of(context)
+                              .push<bool>(
+                                MaterialPageRoute<bool>(
+                                  builder: (_) => PaymentDetailScreen(
+                                    paymentId: payment.paymentId,
+                                  ),
+                                ),
+                              );
                           if (deleted == true) {
                             await _refresh(ref);
                           }

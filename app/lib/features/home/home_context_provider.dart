@@ -17,7 +17,9 @@ class HomeContext {
   final int pendingSyncCount;
 }
 
-final homeContextProvider = FutureProvider.autoDispose<HomeContext>((ref) async {
+final homeContextProvider = FutureProvider.autoDispose<HomeContext>((
+  ref,
+) async {
   final client = ref.read(supabaseClientProvider);
   final userId = client.auth.currentUser?.id;
   final email = client.auth.currentUser?.email ?? '';
@@ -52,14 +54,13 @@ final homeContextProvider = FutureProvider.autoDispose<HomeContext>((ref) async 
       ? fullName.trim()
       : email.split('@').first;
 
-  final businessName = (tenantRow['trading_name'] as String?)?.trim().isNotEmpty ==
-          true
+  final businessName =
+      (tenantRow['trading_name'] as String?)?.trim().isNotEmpty == true
       ? tenantRow['trading_name'] as String
       : tenantRow['legal_name'] as String? ?? 'Your business';
   final branchName = branchRow['name'] as String? ?? 'Main Branch';
 
-  final pendingSync =
-      ref.watch(offlinePendingCountProvider).asData?.value ?? 0;
+  final pendingSync = ref.watch(offlinePendingCountProvider).asData?.value ?? 0;
 
   return HomeContext(
     userName: userName,

@@ -52,8 +52,9 @@ class _PurchaseSupplierOption {
   final String name;
 }
 
-final newPurchaseContextProvider =
-    FutureProvider.autoDispose<_PurchaseContext>((ref) async {
+final newPurchaseContextProvider = FutureProvider.autoDispose<_PurchaseContext>((
+  ref,
+) async {
   final client = ref.read(supabaseClientProvider);
   final membership = await resolveActiveTenantMembership(client);
   final tenantId = membership.tenantId;
@@ -88,17 +89,15 @@ final newPurchaseContextProvider =
   final productRows = results[0] as List<dynamic>;
   final supplierLinkRows = results[1] as List<dynamic>;
 
-  final products = productRows
-      .map((row) {
-        final map = row as Map<String, dynamic>;
-        return _PurchaseProductOption(
-          id: map['id'] as String,
-          name: map['product_name'] as String? ?? 'Unnamed product',
-          unitCode: _unitCodeFromProductRow(map),
-          costPrice: (map['cost_price'] as num?)?.toDouble(),
-        );
-      })
-      .toList();
+  final products = productRows.map((row) {
+    final map = row as Map<String, dynamic>;
+    return _PurchaseProductOption(
+      id: map['id'] as String,
+      name: map['product_name'] as String? ?? 'Unnamed product',
+      unitCode: _unitCodeFromProductRow(map),
+      costPrice: (map['cost_price'] as num?)?.toDouble(),
+    );
+  }).toList();
 
   final suppliers = <_PurchaseSupplierOption>[];
   final seenSupplierIds = <String>{};
@@ -163,8 +162,7 @@ class _NewPurchaseScreenState extends ConsumerState<NewPurchaseScreen> {
     setState(() {
       _selectedProductId = productId;
       if (productId != null) {
-        final product =
-            context.products.firstWhere((p) => p.id == productId);
+        final product = context.products.firstWhere((p) => p.id == productId);
         if (product.costPrice != null) {
           _amountController.text = product.costPrice!.toStringAsFixed(0);
         }
@@ -190,31 +188,37 @@ class _NewPurchaseScreenState extends ConsumerState<NewPurchaseScreen> {
 
     setState(() => _isSubmitting = true);
     try {
-      final purchaseNumber = await ref.read(supabaseClientProvider).rpc(
-        'post_purchase',
-        params: {
-          'target_tenant_id': purchaseContext.tenantId,
-          'target_branch_id': purchaseContext.branchId,
-          'target_warehouse_id': purchaseContext.warehouseId,
-          'p_party_id': _selectedSupplierId,
-          'p_notes': _notesController.text.trim().isEmpty
-              ? null
-              : _notesController.text.trim(),
-          'p_purchase_date': TransactionDateField.toIsoDate(_transactionDate),
-          'p_lines': [
-            {
-              'product_id': _selectedProductId,
-              'quantity': quantity,
-              'unit_cost': unitCost,
-            },
-          ],
-        },
-      ) as String;
+      final purchaseNumber =
+          await ref
+                  .read(supabaseClientProvider)
+                  .rpc(
+                    'post_purchase',
+                    params: {
+                      'target_tenant_id': purchaseContext.tenantId,
+                      'target_branch_id': purchaseContext.branchId,
+                      'target_warehouse_id': purchaseContext.warehouseId,
+                      'p_party_id': _selectedSupplierId,
+                      'p_notes': _notesController.text.trim().isEmpty
+                          ? null
+                          : _notesController.text.trim(),
+                      'p_purchase_date': TransactionDateField.toIsoDate(
+                        _transactionDate,
+                      ),
+                      'p_lines': [
+                        {
+                          'product_id': _selectedProductId,
+                          'quantity': quantity,
+                          'unit_cost': unitCost,
+                        },
+                      ],
+                    },
+                  )
+              as String;
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Purchase $purchaseNumber saved')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Purchase $purchaseNumber saved')));
       Navigator.of(context).pop(true);
     } on PostgrestException catch (e) {
       if (mounted) setState(() => _errorMessage = e.message);
@@ -250,8 +254,7 @@ class _NewPurchaseScreenState extends ConsumerState<NewPurchaseScreen> {
                 Text('$error', textAlign: TextAlign.center),
                 const SizedBox(height: 16),
                 FilledButton(
-                  onPressed: () =>
-                      ref.invalidate(newPurchaseContextProvider),
+                  onPressed: () => ref.invalidate(newPurchaseContextProvider),
                   child: const Text('Try again'),
                 ),
               ],
@@ -300,10 +303,8 @@ class _NewPurchaseScreenState extends ConsumerState<NewPurchaseScreen> {
                       Text(
                         'No suppliers linked yet — you can still receive stock.',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
-                            ),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       )
                     else
                       DropdownButtonFormField<String?>(
@@ -332,7 +333,7 @@ class _NewPurchaseScreenState extends ConsumerState<NewPurchaseScreen> {
                         onChanged: _isSubmitting
                             ? null
                             : (value) =>
-                                setState(() => _selectedSupplierId = value),
+                                  setState(() => _selectedSupplierId = value),
                       ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
@@ -357,7 +358,7 @@ class _NewPurchaseScreenState extends ConsumerState<NewPurchaseScreen> {
                       onChanged: _isSubmitting
                           ? null
                           : (value) =>
-                              _onProductChanged(value, purchaseContext),
+                                _onProductChanged(value, purchaseContext),
                       validator: (value) =>
                           value == null ? 'Select a product' : null,
                     ),

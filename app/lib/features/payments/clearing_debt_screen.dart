@@ -61,53 +61,52 @@ const _paymentMethods = <String, String>{
 
 final clearingDebtContextProvider =
     FutureProvider.autoDispose<_ClearingDebtContext>((ref) async {
-  final client = ref.read(supabaseClientProvider);
-  final userId = client.auth.currentUser?.id;
-  if (userId == null) throw Exception('You must be signed in.');
+      final client = ref.read(supabaseClientProvider);
+      final userId = client.auth.currentUser?.id;
+      if (userId == null) throw Exception('You must be signed in.');
 
-  final membershipRows = await client
-      .from('user_tenants')
-      .select('tenant_id, default_branch_id, membership_status')
-      .eq('user_id', userId)
-      .eq('membership_status', 'active')
-      .limit(1);
-  if ((membershipRows as List).isEmpty) {
-    throw Exception('No active tenant membership found for this user.');
-  }
+      final membershipRows = await client
+          .from('user_tenants')
+          .select('tenant_id, default_branch_id, membership_status')
+          .eq('user_id', userId)
+          .eq('membership_status', 'active')
+          .limit(1);
+      if ((membershipRows as List).isEmpty) {
+        throw Exception('No active tenant membership found for this user.');
+      }
 
-  final membership = membershipRows.first;
-  final tenantId = membership['tenant_id'] as String;
-  var branchId = membership['default_branch_id'] as String?;
+      final membership = membershipRows.first;
+      final tenantId = membership['tenant_id'] as String;
+      var branchId = membership['default_branch_id'] as String?;
 
-  if (branchId == null) {
-    final branchRows = await client
-        .from('branches')
-        .select('id')
-        .eq('tenant_id', tenantId)
-        .eq('is_default', true)
-        .limit(1);
-    if ((branchRows as List).isEmpty) {
-      throw Exception('No default branch found for tenant.');
-    }
-    branchId = branchRows.first['id'] as String;
-  }
+      if (branchId == null) {
+        final branchRows = await client
+            .from('branches')
+            .select('id')
+            .eq('tenant_id', tenantId)
+            .eq('is_default', true)
+            .limit(1);
+        if ((branchRows as List).isEmpty) {
+          throw Exception('No default branch found for tenant.');
+        }
+        branchId = branchRows.first['id'] as String;
+      }
 
-  final customers = await ref.watch(debtorCustomersProvider.future);
+      final customers = await ref.watch(debtorCustomersProvider.future);
 
-  return _ClearingDebtContext(
-    tenantId: tenantId,
-    userId: userId,
-    branchId: branchId,
-    customers: customers,
-  );
-});
+      return _ClearingDebtContext(
+        tenantId: tenantId,
+        userId: userId,
+        branchId: branchId,
+        customers: customers,
+      );
+    });
 
 class ClearingDebtScreen extends ConsumerStatefulWidget {
   const ClearingDebtScreen({super.key});
 
   @override
-  ConsumerState<ClearingDebtScreen> createState() =>
-      _ClearingDebtScreenState();
+  ConsumerState<ClearingDebtScreen> createState() => _ClearingDebtScreenState();
 }
 
 class _ClearingDebtScreenState extends ConsumerState<ClearingDebtScreen> {
@@ -174,9 +173,9 @@ class _ClearingDebtScreenState extends ConsumerState<ClearingDebtScreen> {
       final openingBalance = partyRows.isEmpty
           ? 0.0
           : ((partyRows.first as Map<String, dynamic>)['opening_balance']
-                      as num?)
-                  ?.toDouble() ??
-              0;
+                        as num?)
+                    ?.toDouble() ??
+                0;
 
       final invoices = rows.map((row) {
         final map = row as Map<String, dynamic>;
@@ -208,8 +207,8 @@ class _ClearingDebtScreenState extends ConsumerState<ClearingDebtScreen> {
             _amountController.text = openingBalance.toStringAsFixed(0);
           } else if (invoices.length == 1) {
             _selectedInvoiceId = invoices.first.id;
-            _amountController.text =
-                invoices.first.balanceAmount.toStringAsFixed(0);
+            _amountController.text = invoices.first.balanceAmount
+                .toStringAsFixed(0);
           }
         } else if (_totalOwed > 0) {
           _amountController.text = _totalOwed.toStringAsFixed(0);
@@ -287,8 +286,9 @@ class _ClearingDebtScreenState extends ConsumerState<ClearingDebtScreen> {
         setState(() => _errorMessage = 'Select an invoice.');
         return;
       }
-      final invoice =
-          _openInvoices.firstWhere((item) => item.id == _selectedInvoiceId);
+      final invoice = _openInvoices.firstWhere(
+        (item) => item.id == _selectedInvoiceId,
+      );
       if (amount > invoice.balanceAmount) {
         setState(
           () => _errorMessage =
@@ -299,30 +299,36 @@ class _ClearingDebtScreenState extends ConsumerState<ClearingDebtScreen> {
     }
 
     final client = ref.read(supabaseClientProvider);
-    final paymentNumber = await client.rpc(
-      'get_next_document_number',
-      params: {
-        'target_tenant_id': ctx.tenantId,
-        'target_branch_id': ctx.branchId,
-        'target_sequence_code': 'payment',
-      },
-    ) as String;
+    final paymentNumber =
+        await client.rpc(
+              'get_next_document_number',
+              params: {
+                'target_tenant_id': ctx.tenantId,
+                'target_branch_id': ctx.branchId,
+                'target_sequence_code': 'payment',
+              },
+            )
+            as String;
 
-    final paymentRows = await client.from('payments').insert({
-      'tenant_id': ctx.tenantId,
-      'branch_id': ctx.branchId,
-      'payment_number': paymentNumber,
-      'payment_date': TransactionDateField.toIsoDate(_transactionDate),
-      'party_id': _selectedCustomerId,
-      'payment_method': _paymentMethod,
-      'amount': amount,
-      'status': 'posted',
-      'notes': _notesController.text.trim().isEmpty
-          ? null
-          : _notesController.text.trim(),
-      'created_by': ctx.userId,
-      'posted_at': DateTime.now().toUtc().toIso8601String(),
-    }).select('id').limit(1);
+    final paymentRows = await client
+        .from('payments')
+        .insert({
+          'tenant_id': ctx.tenantId,
+          'branch_id': ctx.branchId,
+          'payment_number': paymentNumber,
+          'payment_date': TransactionDateField.toIsoDate(_transactionDate),
+          'party_id': _selectedCustomerId,
+          'payment_method': _paymentMethod,
+          'amount': amount,
+          'status': 'posted',
+          'notes': _notesController.text.trim().isEmpty
+              ? null
+              : _notesController.text.trim(),
+          'created_by': ctx.userId,
+          'posted_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .select('id')
+        .limit(1);
 
     final paymentId = (paymentRows as List).first['id'] as String;
 
@@ -332,8 +338,9 @@ class _ClearingDebtScreenState extends ConsumerState<ClearingDebtScreen> {
           .update({'opening_balance': _openingBalance - amount})
           .eq('id', _selectedCustomerId!);
     } else {
-      final invoice =
-          _openInvoices.firstWhere((item) => item.id == _selectedInvoiceId);
+      final invoice = _openInvoices.firstWhere(
+        (item) => item.id == _selectedInvoiceId,
+      );
       await client.from('payment_allocations').insert({
         'tenant_id': ctx.tenantId,
         'payment_id': paymentId,
@@ -362,36 +369,44 @@ class _ClearingDebtScreenState extends ConsumerState<ClearingDebtScreen> {
     final allocations = <Map<String, dynamic>>[];
     for (final invoice in _autoInvoices) {
       if (remaining <= 0) break;
-      final alloc =
-          remaining < invoice.balanceAmount ? remaining : invoice.balanceAmount;
+      final alloc = remaining < invoice.balanceAmount
+          ? remaining
+          : invoice.balanceAmount;
       allocations.add({'invoice_id': invoice.id, 'allocated_amount': alloc});
       remaining -= alloc;
     }
-    final openingApplied =
-        remaining < _openingBalance ? remaining : _openingBalance;
+    final openingApplied = remaining < _openingBalance
+        ? remaining
+        : _openingBalance;
 
     final client = ref.read(supabaseClientProvider);
-    final paymentNumber = await client.rpc(
-      'get_next_document_number',
-      params: {
-        'target_tenant_id': ctx.tenantId,
-        'target_branch_id': ctx.branchId,
-        'target_sequence_code': 'payment',
-      },
-    ) as String;
+    final paymentNumber =
+        await client.rpc(
+              'get_next_document_number',
+              params: {
+                'target_tenant_id': ctx.tenantId,
+                'target_branch_id': ctx.branchId,
+                'target_sequence_code': 'payment',
+              },
+            )
+            as String;
 
-    final paymentRows = await client.from('payments').insert({
-      'tenant_id': ctx.tenantId,
-      'branch_id': ctx.branchId,
-      'payment_number': paymentNumber,
-      'payment_date': DateTime.now().toIso8601String().substring(0, 10),
-      'party_id': _selectedCustomerId,
-      'payment_method': _paymentMethod,
-      'amount': amount,
-      'status': 'posted',
-      'created_by': ctx.userId,
-      'posted_at': DateTime.now().toUtc().toIso8601String(),
-    }).select('id').limit(1);
+    final paymentRows = await client
+        .from('payments')
+        .insert({
+          'tenant_id': ctx.tenantId,
+          'branch_id': ctx.branchId,
+          'payment_number': paymentNumber,
+          'payment_date': DateTime.now().toIso8601String().substring(0, 10),
+          'party_id': _selectedCustomerId,
+          'payment_method': _paymentMethod,
+          'amount': amount,
+          'status': 'posted',
+          'created_by': ctx.userId,
+          'posted_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .select('id')
+        .limit(1);
 
     final paymentId = (paymentRows as List).first['id'] as String;
 
@@ -404,7 +419,7 @@ class _ClearingDebtScreenState extends ConsumerState<ClearingDebtScreen> {
             'invoice_id': a['invoice_id'],
             'allocated_amount': a['allocated_amount'],
             'created_by': ctx.userId,
-          }
+          },
       ]);
     }
 
@@ -501,7 +516,7 @@ class _ClearingDebtScreenState extends ConsumerState<ClearingDebtScreen> {
                     onSelectionChanged: _isSubmitting
                         ? null
                         : (selection) =>
-                            _onAllocationModeChanged(selection.first),
+                              _onAllocationModeChanged(selection.first),
                   ),
                   const SizedBox(height: 16),
                   if (_allocationMode == _AllocationMode.byInvoice) ...[
@@ -559,15 +574,11 @@ class _ClearingDebtScreenState extends ConsumerState<ClearingDebtScreen> {
                             ),
                             Text(
                               formatRwf(_totalOwed),
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleLarge
+                              style: Theme.of(context).textTheme.titleLarge
                                   ?.copyWith(
                                     color: _totalOwed > 0
                                         ? Theme.of(context).colorScheme.error
-                                        : Theme.of(context)
-                                            .colorScheme
-                                            .primary,
+                                        : Theme.of(context).colorScheme.primary,
                                   ),
                             ),
                           ],
@@ -625,10 +636,9 @@ class _ClearingDebtScreenState extends ConsumerState<ClearingDebtScreen> {
                           )
                           .toList(),
                       onChanged: _isSubmitting ? null : _onInvoiceChanged,
-                      validator: (value) =>
-                          _payOpeningBalance || value != null
-                              ? null
-                              : 'Select invoice',
+                      validator: (value) => _payOpeningBalance || value != null
+                          ? null
+                          : 'Select invoice',
                     ),
                     const SizedBox(height: 12),
                   ],
@@ -657,7 +667,8 @@ class _ClearingDebtScreenState extends ConsumerState<ClearingDebtScreen> {
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _amountController,
-                    enabled: !_isSubmitting &&
+                    enabled:
+                        !_isSubmitting &&
                         (_allocationMode == _AllocationMode.autoAllocate ||
                             _payOpeningBalance ||
                             _selectedInvoiceId != null),
@@ -685,13 +696,15 @@ class _ClearingDebtScreenState extends ConsumerState<ClearingDebtScreen> {
                     const SizedBox(height: 12),
                     Text(
                       _errorMessage!,
-                      style:
-                          TextStyle(color: Theme.of(context).colorScheme.error),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                     ),
                   ],
                   const SizedBox(height: 20),
                   FilledButton(
-                    onPressed: _isSubmitting ||
+                    onPressed:
+                        _isSubmitting ||
                             (_allocationMode == _AllocationMode.byInvoice &&
                                 !_payOpeningBalance &&
                                 (_selectedInvoiceId == null ||

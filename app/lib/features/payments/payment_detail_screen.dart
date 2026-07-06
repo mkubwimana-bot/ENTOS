@@ -48,49 +48,47 @@ const _paymentMethodLabels = <String, String>{
   'other': 'Other',
 };
 
-final paymentDetailProvider =
-    FutureProvider.autoDispose.family<_PaymentDetail, String>((ref, paymentId) async {
-  final client = ref.read(supabaseClientProvider);
+final paymentDetailProvider = FutureProvider.autoDispose
+    .family<_PaymentDetail, String>((ref, paymentId) async {
+      final client = ref.read(supabaseClientProvider);
 
-  final paymentRows = await client
-      .from('payments')
-      .select(
-        'payment_number, payment_date, payment_method, amount, notes, parties(party_name)',
-      )
-      .eq('id', paymentId)
-      .limit(1);
-  if ((paymentRows as List).isEmpty) throw Exception('Payment not found.');
-  final payment = paymentRows.first;
-  final party = payment['parties'] as Map<String, dynamic>?;
-  final method = payment['payment_method'] as String? ?? 'cash';
+      final paymentRows = await client
+          .from('payments')
+          .select(
+            'payment_number, payment_date, payment_method, amount, notes, parties(party_name)',
+          )
+          .eq('id', paymentId)
+          .limit(1);
+      if ((paymentRows as List).isEmpty) throw Exception('Payment not found.');
+      final payment = paymentRows.first;
+      final party = payment['parties'] as Map<String, dynamic>?;
+      final method = payment['payment_method'] as String? ?? 'cash';
 
-  final allocationRows = await client
-      .from('payment_allocations')
-      .select(
-        'allocated_amount, invoices(invoice_number, invoice_date)',
-      )
-      .eq('payment_id', paymentId);
+      final allocationRows = await client
+          .from('payment_allocations')
+          .select('allocated_amount, invoices(invoice_number, invoice_date)')
+          .eq('payment_id', paymentId);
 
-  final allocations = (allocationRows as List<dynamic>).map((row) {
-    final map = row as Map<String, dynamic>;
-    final invoice = map['invoices'] as Map<String, dynamic>?;
-    return _AllocationItem(
-      invoiceNumber: invoice?['invoice_number'] as String? ?? 'Invoice',
-      invoiceDate: invoice?['invoice_date'] as String? ?? '',
-      allocatedAmount: (map['allocated_amount'] as num?)?.toDouble() ?? 0,
-    );
-  }).toList();
+      final allocations = (allocationRows as List<dynamic>).map((row) {
+        final map = row as Map<String, dynamic>;
+        final invoice = map['invoices'] as Map<String, dynamic>?;
+        return _AllocationItem(
+          invoiceNumber: invoice?['invoice_number'] as String? ?? 'Invoice',
+          invoiceDate: invoice?['invoice_date'] as String? ?? '',
+          allocatedAmount: (map['allocated_amount'] as num?)?.toDouble() ?? 0,
+        );
+      }).toList();
 
-  return _PaymentDetail(
-    paymentNumber: payment['payment_number'] as String? ?? '',
-    paymentDate: payment['payment_date'] as String? ?? '',
-    partyName: party?['party_name'] as String? ?? 'Unknown customer',
-    paymentMethod: _paymentMethodLabels[method] ?? method,
-    amount: (payment['amount'] as num?)?.toDouble() ?? 0,
-    notes: payment['notes'] as String?,
-    allocations: allocations,
-  );
-});
+      return _PaymentDetail(
+        paymentNumber: payment['payment_number'] as String? ?? '',
+        paymentDate: payment['payment_date'] as String? ?? '',
+        partyName: party?['party_name'] as String? ?? 'Unknown customer',
+        paymentMethod: _paymentMethodLabels[method] ?? method,
+        amount: (payment['amount'] as num?)?.toDouble() ?? 0,
+        notes: payment['notes'] as String?,
+        allocations: allocations,
+      );
+    });
 
 class PaymentDetailScreen extends ConsumerStatefulWidget {
   const PaymentDetailScreen({required this.paymentId, super.key});
@@ -135,20 +133,19 @@ class _PaymentDetailScreenState extends ConsumerState<PaymentDetailScreen> {
 
     setState(() => _isVoiding = true);
     try {
-      await ref.read(supabaseClientProvider).rpc(
-        'void_payment',
-        params: {'p_payment_id': widget.paymentId},
-      );
+      await ref
+          .read(supabaseClientProvider)
+          .rpc('void_payment', params: {'p_payment_id': widget.paymentId});
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Payment deleted')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Payment deleted')));
       Navigator.of(context).pop(true);
     } on PostgrestException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
     } finally {
       if (mounted) setState(() => _isVoiding = false);
     }
@@ -175,7 +172,10 @@ class _PaymentDetailScreenState extends ConsumerState<PaymentDetailScreen> {
               children: [
                 const Icon(Icons.error_outline, size: 48),
                 const SizedBox(height: 12),
-                Text('Could not load payment: $error', textAlign: TextAlign.center),
+                Text(
+                  'Could not load payment: $error',
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 16),
                 FilledButton(
                   onPressed: () =>
@@ -195,8 +195,10 @@ class _PaymentDetailScreenState extends ConsumerState<PaymentDetailScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(detail.paymentNumber,
-                        style: Theme.of(context).textTheme.titleLarge),
+                    Text(
+                      detail.paymentNumber,
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
                     const SizedBox(height: 8),
                     Text('Date: ${detail.paymentDate}'),
                     Text('Customer: ${detail.partyName}'),
@@ -218,7 +220,9 @@ class _PaymentDetailScreenState extends ConsumerState<PaymentDetailScreen> {
             Text('Allocations', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             if (detail.allocations.isEmpty)
-              const Text('No invoice allocations (may be opening balance payment)')
+              const Text(
+                'No invoice allocations (may be opening balance payment)',
+              )
             else
               Card(
                 child: Column(
@@ -239,10 +243,9 @@ class _PaymentDetailScreenState extends ConsumerState<PaymentDetailScreen> {
             if (canVoid) ...[
               const SizedBox(height: 24),
               Card(
-                color: Theme.of(context)
-                    .colorScheme
-                    .surfaceContainerHighest
-                    .withValues(alpha: 0.6),
+                color: Theme.of(
+                  context,
+                ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
                 child: const Padding(
                   padding: EdgeInsets.all(12),
                   child: Text(

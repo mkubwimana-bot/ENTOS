@@ -21,14 +21,12 @@ class StockHubOverview {
   final int lowStockCount;
 }
 
-final stockHubOverviewProvider =
-    FutureProvider.autoDispose<StockHubOverview>((ref) async {
+final stockHubOverviewProvider = FutureProvider.autoDispose<StockHubOverview>((
+  ref,
+) async {
   final items = await ref.watch(currentStockProvider.future);
   final lowCount = items.where((item) => item.isLowStock).length;
-  return StockHubOverview(
-    totalItems: items.length,
-    lowStockCount: lowCount,
-  );
+  return StockHubOverview(totalItems: items.length, lowStockCount: lowCount);
 });
 
 /// Stock hub shown on the bottom-nav Stock tab.
@@ -151,9 +149,9 @@ class StockHubTab extends ConsumerWidget {
         Text(
           'Quick Actions',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF1A2332),
-              ),
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFF1A2332),
+          ),
         ),
         const SizedBox(height: 12),
         IntrinsicHeight(
@@ -200,9 +198,9 @@ class StockHubTab extends ConsumerWidget {
         Text(
           'Records & Control',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF1A2332),
-              ),
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFF1A2332),
+          ),
         ),
         const SizedBox(height: 12),
         Material(
@@ -292,9 +290,9 @@ class _StockHeader extends StatelessWidget {
             'Stock',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF1A2332),
-                ),
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF1A2332),
+            ),
           ),
         ),
         IconButton(
@@ -369,17 +367,17 @@ class _StockOverviewCard extends StatelessWidget {
                   Text(
                     'Stock totals update when online',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: const Color(0xFF546E7A),
-                        ),
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF546E7A),
+                    ),
                   )
                 else
                   Text(
                     '$totalItems item${totalItems == 1 ? '' : 's'}',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: StockHubTab.heroGreen,
-                        ),
+                      fontWeight: FontWeight.w800,
+                      color: StockHubTab.heroGreen,
+                    ),
                   ),
                 const SizedBox(height: 8),
                 Row(
@@ -399,8 +397,8 @@ class _StockOverviewCard extends StatelessWidget {
                         offline
                             ? 'Purchases and adjustments need a connection'
                             : lowStockCount == 0
-                                ? 'All items above reorder level'
-                                : '$lowStockCount item${lowStockCount == 1 ? '' : 's'} low in stock',
+                            ? 'All items above reorder level'
+                            : '$lowStockCount item${lowStockCount == 1 ? '' : 's'} low in stock',
                         style: TextStyle(
                           fontSize: 13,
                           color: Colors.grey.shade600,
@@ -537,7 +535,11 @@ class _QuickActionTile extends StatelessWidget {
                     child: Icon(icon, color: iconColor, size: 22),
                   ),
                   const Spacer(),
-                  Icon(Icons.chevron_right, color: Colors.grey.shade500, size: 20),
+                  Icon(
+                    Icons.chevron_right,
+                    color: Colors.grey.shade500,
+                    size: 20,
+                  ),
                 ],
               ),
               const SizedBox(height: 12),

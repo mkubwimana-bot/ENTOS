@@ -59,8 +59,7 @@ class CurrentStockScreen extends ConsumerStatefulWidget {
   const CurrentStockScreen({super.key});
 
   @override
-  ConsumerState<CurrentStockScreen> createState() =>
-      _CurrentStockScreenState();
+  ConsumerState<CurrentStockScreen> createState() => _CurrentStockScreenState();
 }
 
 class _CurrentStockScreenState extends ConsumerState<CurrentStockScreen> {
@@ -136,8 +135,8 @@ class _CurrentStockScreenState extends ConsumerState<CurrentStockScreen> {
                 final filtered = _selectedProductId == null
                     ? items
                     : items
-                        .where((i) => i.productId == _selectedProductId)
-                        .toList();
+                          .where((i) => i.productId == _selectedProductId)
+                          .toList();
 
                 return RefreshIndicator(
                   onRefresh: _refresh,
@@ -159,8 +158,9 @@ class _CurrentStockScreenState extends ConsumerState<CurrentStockScreen> {
                             final theme = Theme.of(context);
                             return Card(
                               color: item.isLowStock
-                                  ? theme.colorScheme.errorContainer
-                                      .withValues(alpha: 0.35)
+                                  ? theme.colorScheme.errorContainer.withValues(
+                                      alpha: 0.35,
+                                    )
                                   : null,
                               child: ListTile(
                                 leading: Icon(

@@ -54,53 +54,51 @@ class _NewProductLookups {
   final List<_ProductUnitOption> units;
 }
 
-final newProductLookupsProvider = FutureProvider.autoDispose<_NewProductLookups>((
-  ref,
-) async {
-  final client = ref.read(supabaseClientProvider);
-  final userId = client.auth.currentUser?.id;
-  if (userId == null) throw Exception('You must be signed in.');
+final newProductLookupsProvider =
+    FutureProvider.autoDispose<_NewProductLookups>((ref) async {
+      final client = ref.read(supabaseClientProvider);
+      final userId = client.auth.currentUser?.id;
+      if (userId == null) throw Exception('You must be signed in.');
 
-  final membershipRows = await client
-      .from('user_tenants')
-      .select('tenant_id, membership_status')
-      .eq('user_id', userId)
-      .eq('membership_status', 'active')
-      .limit(1);
-  if ((membershipRows).isEmpty) {
-    throw Exception('No active tenant membership found for this user.');
-  }
+      final membershipRows = await client
+          .from('user_tenants')
+          .select('tenant_id, membership_status')
+          .eq('user_id', userId)
+          .eq('membership_status', 'active')
+          .limit(1);
+      if ((membershipRows).isEmpty) {
+        throw Exception('No active tenant membership found for this user.');
+      }
 
-  final tenantId = membershipRows.first['tenant_id'] as String;
+      final tenantId = membershipRows.first['tenant_id'] as String;
 
-  final results = await Future.wait<dynamic>([
-    client
-        .from('product_types')
-        .select('id, type_code, type_name, tracks_inventory')
-        .eq('is_active', true)
-        .order('type_name'),
-    client
-        .from('product_categories')
-        .select('id, category_name')
-        .eq('tenant_id', tenantId)
-        .eq('is_active', true)
-        .order('category_name'),
-    client
-        .from('product_units')
-        .select('id, unit_code, tenant_id')
-        .or('tenant_id.is.null,tenant_id.eq.$tenantId')
-        .eq('is_active', true)
-        .order('unit_code'),
-  ]);
+      final results = await Future.wait<dynamic>([
+        client
+            .from('product_types')
+            .select('id, type_code, type_name, tracks_inventory')
+            .eq('is_active', true)
+            .order('type_name'),
+        client
+            .from('product_categories')
+            .select('id, category_name')
+            .eq('tenant_id', tenantId)
+            .eq('is_active', true)
+            .order('category_name'),
+        client
+            .from('product_units')
+            .select('id, unit_code, tenant_id')
+            .or('tenant_id.is.null,tenant_id.eq.$tenantId')
+            .eq('is_active', true)
+            .order('unit_code'),
+      ]);
 
-  final typeRows = results[0] as List<dynamic>;
-  final categoryRows = results[1] as List<dynamic>;
-  final unitRows = results[2] as List<dynamic>;
+      final typeRows = results[0] as List<dynamic>;
+      final categoryRows = results[1] as List<dynamic>;
+      final unitRows = results[2] as List<dynamic>;
 
-  return _NewProductLookups(
-    tenant: _TenantContext(tenantId: tenantId),
-    types: typeRows
-        .map((row) {
+      return _NewProductLookups(
+        tenant: _TenantContext(tenantId: tenantId),
+        types: typeRows.map((row) {
           final map = row as Map<String, dynamic>;
           return _ProductTypeOption(
             id: map['id'] as String,
@@ -108,28 +106,23 @@ final newProductLookupsProvider = FutureProvider.autoDispose<_NewProductLookups>
             name: map['type_name'] as String? ?? 'Unknown type',
             tracksInventory: map['tracks_inventory'] as bool? ?? false,
           );
-        })
-        .toList(),
-    categories: categoryRows
-        .map((row) {
+        }).toList(),
+        categories: categoryRows.map((row) {
           final map = row as Map<String, dynamic>;
           return _ProductCategoryOption(
             id: map['id'] as String,
             name: map['category_name'] as String? ?? 'Unknown category',
           );
-        })
-        .toList(),
-    units: unitRows
-        .map((row) {
+        }).toList(),
+        units: unitRows.map((row) {
           final map = row as Map<String, dynamic>;
           return _ProductUnitOption(
             id: map['id'] as String,
             code: map['unit_code'] as String? ?? '',
           );
-        })
-        .toList(),
-  );
-});
+        }).toList(),
+      );
+    });
 
 class NewProductScreen extends ConsumerStatefulWidget {
   const NewProductScreen({super.key});
@@ -179,7 +172,9 @@ class _NewProductScreenState extends ConsumerState<NewProductScreen> {
       return;
     }
 
-    final selectedType = lookups.types.firstWhere((t) => t.id == _selectedTypeId);
+    final selectedType = lookups.types.firstWhere(
+      (t) => t.id == _selectedTypeId,
+    );
     final userId = ref.read(supabaseClientProvider).auth.currentUser?.id;
     if (userId == null) {
       setState(() => _errorMessage = 'Your session expired. Sign in again.');
@@ -188,13 +183,17 @@ class _NewProductScreenState extends ConsumerState<NewProductScreen> {
 
     setState(() => _isSubmitting = true);
     try {
-      final productCode = await ref.read(supabaseClientProvider).rpc(
-        'generate_product_code',
-        params: {
-          'target_tenant_id': lookups.tenant.tenantId,
-          'product_name': _nameController.text.trim(),
-        },
-      ) as String;
+      final productCode =
+          await ref
+                  .read(supabaseClientProvider)
+                  .rpc(
+                    'generate_product_code',
+                    params: {
+                      'target_tenant_id': lookups.tenant.tenantId,
+                      'product_name': _nameController.text.trim(),
+                    },
+                  )
+              as String;
 
       await ref.read(supabaseClientProvider).from('products').insert({
         'tenant_id': lookups.tenant.tenantId,
@@ -216,7 +215,9 @@ class _NewProductScreenState extends ConsumerState<NewProductScreen> {
       if (mounted) setState(() => _errorMessage = e.message);
     } catch (_) {
       if (mounted) {
-        setState(() => _errorMessage = 'Could not save product. Please try again.');
+        setState(
+          () => _errorMessage = 'Could not save product. Please try again.',
+        );
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -265,7 +266,10 @@ class _NewProductScreenState extends ConsumerState<NewProductScreen> {
               children: [
                 const Icon(Icons.error_outline, size: 48),
                 const SizedBox(height: 12),
-                Text('Could not load product setup: $error', textAlign: TextAlign.center),
+                Text(
+                  'Could not load product setup: $error',
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 16),
                 FilledButton(
                   onPressed: () => ref.invalidate(newProductLookupsProvider),
@@ -298,10 +302,8 @@ class _NewProductScreenState extends ConsumerState<NewProductScreen> {
                     Text(
                       'Product code: $_previewProductCode',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurfaceVariant,
-                          ),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                   const SizedBox(height: 12),
@@ -322,7 +324,8 @@ class _NewProductScreenState extends ConsumerState<NewProductScreen> {
                     onChanged: _isSubmitting
                         ? null
                         : (value) => setState(() => _selectedTypeId = value),
-                    validator: (value) => value == null ? 'Select product type' : null,
+                    validator: (value) =>
+                        value == null ? 'Select product type' : null,
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String?>(
@@ -345,7 +348,8 @@ class _NewProductScreenState extends ConsumerState<NewProductScreen> {
                     ],
                     onChanged: _isSubmitting
                         ? null
-                        : (value) => setState(() => _selectedCategoryId = value),
+                        : (value) =>
+                              setState(() => _selectedCategoryId = value),
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
@@ -371,7 +375,9 @@ class _NewProductScreenState extends ConsumerState<NewProductScreen> {
                   TextFormField(
                     controller: _priceController,
                     enabled: !_isSubmitting,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     decoration: const InputDecoration(
                       labelText: 'Selling price (RWF)',
                       border: OutlineInputBorder(),
@@ -382,7 +388,9 @@ class _NewProductScreenState extends ConsumerState<NewProductScreen> {
                   TextFormField(
                     controller: _reorderLevelController,
                     enabled: !_isSubmitting,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     decoration: const InputDecoration(
                       labelText: 'Reorder level (optional)',
                       border: OutlineInputBorder(),
@@ -393,7 +401,9 @@ class _NewProductScreenState extends ConsumerState<NewProductScreen> {
                     const SizedBox(height: 12),
                     Text(
                       _errorMessage!,
-                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                     ),
                   ],
                   const SizedBox(height: 20),

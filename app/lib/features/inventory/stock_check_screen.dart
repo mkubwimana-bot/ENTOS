@@ -24,8 +24,9 @@ class StockCheckItem {
       reorderLevel != null && currentQuantity <= reorderLevel!;
 }
 
-final stockCheckCatalogProvider =
-    FutureProvider.autoDispose<List<StockCheckItem>>((ref) async {
+final stockCheckCatalogProvider = FutureProvider.autoDispose<List<StockCheckItem>>((
+  ref,
+) async {
   final rows = await ref
       .read(supabaseClientProvider)
       .from('vw_current_stock')
@@ -116,8 +117,10 @@ class _StockCheckScreenState extends ConsumerState<StockCheckScreen> {
                     children: [
                       const Icon(Icons.error_outline, size: 48),
                       const SizedBox(height: 12),
-                      Text('Could not load stock: $error',
-                          textAlign: TextAlign.center),
+                      Text(
+                        'Could not load stock: $error',
+                        textAlign: TextAlign.center,
+                      ),
                       const SizedBox(height: 16),
                       FilledButton(
                         onPressed: () =>
@@ -144,10 +147,8 @@ class _StockCheckScreenState extends ConsumerState<StockCheckScreen> {
                         'Type a product name or code to check available stock.',
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
-                            ),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ),
                   );
@@ -167,8 +168,9 @@ class _StockCheckScreenState extends ConsumerState<StockCheckScreen> {
                       final theme = Theme.of(context);
                       return Card(
                         color: item.isLowStock
-                            ? theme.colorScheme.errorContainer
-                                .withValues(alpha: 0.35)
+                            ? theme.colorScheme.errorContainer.withValues(
+                                alpha: 0.35,
+                              )
                             : null,
                         child: ListTile(
                           leading: Icon(

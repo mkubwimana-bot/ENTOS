@@ -24,31 +24,32 @@ class DailySalesRow {
   final double totalBalance;
 }
 
-final dailySalesReportProvider =
-    FutureProvider.autoDispose<List<DailySalesRow>>((ref) async {
-  final period = ref.watch(reportPeriodProvider);
-  final range = period.range;
-  final rows = await ref
-      .read(supabaseClientProvider)
-      .from('vw_daily_sales')
-      .select(
-        'invoice_date, invoice_count, total_sales, total_paid, total_balance',
-      )
-      .gte('invoice_date', formatIsoDate(range.start))
-      .lte('invoice_date', formatIsoDate(range.end))
-      .order('invoice_date', ascending: false);
+final dailySalesReportProvider = FutureProvider.autoDispose<List<DailySalesRow>>(
+  (ref) async {
+    final period = ref.watch(reportPeriodProvider);
+    final range = period.range;
+    final rows = await ref
+        .read(supabaseClientProvider)
+        .from('vw_daily_sales')
+        .select(
+          'invoice_date, invoice_count, total_sales, total_paid, total_balance',
+        )
+        .gte('invoice_date', formatIsoDate(range.start))
+        .lte('invoice_date', formatIsoDate(range.end))
+        .order('invoice_date', ascending: false);
 
-  return (rows as List<dynamic>).map((row) {
-    final map = row as Map<String, dynamic>;
-    return DailySalesRow(
-      invoiceDate: map['invoice_date'] as String? ?? '',
-      invoiceCount: (map['invoice_count'] as num?)?.toInt() ?? 0,
-      totalSales: (map['total_sales'] as num?)?.toDouble() ?? 0,
-      totalPaid: (map['total_paid'] as num?)?.toDouble() ?? 0,
-      totalBalance: (map['total_balance'] as num?)?.toDouble() ?? 0,
-    );
-  }).toList();
-});
+    return (rows as List<dynamic>).map((row) {
+      final map = row as Map<String, dynamic>;
+      return DailySalesRow(
+        invoiceDate: map['invoice_date'] as String? ?? '',
+        invoiceCount: (map['invoice_count'] as num?)?.toInt() ?? 0,
+        totalSales: (map['total_sales'] as num?)?.toDouble() ?? 0,
+        totalPaid: (map['total_paid'] as num?)?.toDouble() ?? 0,
+        totalBalance: (map['total_balance'] as num?)?.toDouble() ?? 0,
+      );
+    }).toList();
+  },
+);
 
 // --- Gross profit by product ---
 
@@ -72,74 +73,74 @@ class ProductProfitRow {
 
 final productProfitReportProvider =
     FutureProvider.autoDispose<List<ProductProfitRow>>((ref) async {
-  final period = ref.watch(reportPeriodProvider);
-  final range = period.range;
+      final period = ref.watch(reportPeriodProvider);
+      final range = period.range;
 
-  final rows = await ref.read(supabaseClientProvider).from('invoice_lines').select(
-        'quantity, line_total, cost_price_snapshot, product_id, '
-        'products(product_code, product_name), '
-        'invoices!inner(invoice_date, status, voided_at)',
-      ).eq('invoices.status', 'posted').isFilter('invoices.voided_at', null).gte(
-        'invoices.invoice_date',
-        formatIsoDate(range.start),
-      ).lte(
-        'invoices.invoice_date',
-        formatIsoDate(range.end),
-      );
+      final rows = await ref
+          .read(supabaseClientProvider)
+          .from('invoice_lines')
+          .select(
+            'quantity, line_total, cost_price_snapshot, product_id, '
+            'products(product_code, product_name), '
+            'invoices!inner(invoice_date, status, voided_at)',
+          )
+          .eq('invoices.status', 'posted')
+          .isFilter('invoices.voided_at', null)
+          .gte('invoices.invoice_date', formatIsoDate(range.start))
+          .lte('invoices.invoice_date', formatIsoDate(range.end));
 
-  final byProduct = <String, ({
-    String code,
-    String name,
-    double qty,
-    double sales,
-    double cost,
-  })>{};
+      final byProduct =
+          <
+            String,
+            ({String code, String name, double qty, double sales, double cost})
+          >{};
 
-  for (final row in rows as List<dynamic>) {
-    final map = row as Map<String, dynamic>;
-    final productId = map['product_id'] as String;
-    final product = map['products'] as Map<String, dynamic>?;
-    final qty = (map['quantity'] as num?)?.toDouble() ?? 0;
-    final lineTotal = (map['line_total'] as num?)?.toDouble() ?? 0;
-    final unitCost = (map['cost_price_snapshot'] as num?)?.toDouble() ?? 0;
-    final lineCost = unitCost * qty;
+      for (final row in rows as List<dynamic>) {
+        final map = row as Map<String, dynamic>;
+        final productId = map['product_id'] as String;
+        final product = map['products'] as Map<String, dynamic>?;
+        final qty = (map['quantity'] as num?)?.toDouble() ?? 0;
+        final lineTotal = (map['line_total'] as num?)?.toDouble() ?? 0;
+        final unitCost = (map['cost_price_snapshot'] as num?)?.toDouble() ?? 0;
+        final lineCost = unitCost * qty;
 
-    final existing = byProduct[productId];
-    if (existing == null) {
-      byProduct[productId] = (
-        code: product?['product_code'] as String? ?? '',
-        name: product?['product_name'] as String? ?? 'Unnamed product',
-        qty: qty,
-        sales: lineTotal,
-        cost: lineCost,
-      );
-    } else {
-      byProduct[productId] = (
-        code: existing.code,
-        name: existing.name,
-        qty: existing.qty + qty,
-        sales: existing.sales + lineTotal,
-        cost: existing.cost + lineCost,
-      );
-    }
-  }
+        final existing = byProduct[productId];
+        if (existing == null) {
+          byProduct[productId] = (
+            code: product?['product_code'] as String? ?? '',
+            name: product?['product_name'] as String? ?? 'Unnamed product',
+            qty: qty,
+            sales: lineTotal,
+            cost: lineCost,
+          );
+        } else {
+          byProduct[productId] = (
+            code: existing.code,
+            name: existing.name,
+            qty: existing.qty + qty,
+            sales: existing.sales + lineTotal,
+            cost: existing.cost + lineCost,
+          );
+        }
+      }
 
-  final results = byProduct.values
-      .map(
-        (p) => ProductProfitRow(
-          productCode: p.code,
-          productName: p.name,
-          quantitySold: p.qty,
-          totalSales: p.sales,
-          estimatedCost: p.cost,
-          estimatedGrossProfit: p.sales - p.cost,
-        ),
-      )
-      .toList()
-    ..sort((a, b) => b.totalSales.compareTo(a.totalSales));
+      final results =
+          byProduct.values
+              .map(
+                (p) => ProductProfitRow(
+                  productCode: p.code,
+                  productName: p.name,
+                  quantitySold: p.qty,
+                  totalSales: p.sales,
+                  estimatedCost: p.cost,
+                  estimatedGrossProfit: p.sales - p.cost,
+                ),
+              )
+              .toList()
+            ..sort((a, b) => b.totalSales.compareTo(a.totalSales));
 
-  return results;
-});
+      return results;
+    });
 
 // --- Receivables aging ---
 
@@ -181,27 +182,27 @@ const _agingBucketOrder = [
 
 final receivablesAgingReportProvider =
     FutureProvider.autoDispose<List<ReceivablesAgingRow>>((ref) async {
-  final rows = await ref
-      .read(supabaseClientProvider)
-      .from('vw_receivables_aging')
-      .select(
-        'party_name, invoice_number, invoice_date, due_date, outstanding, aging_bucket',
-      )
-      .gt('outstanding', 0)
-      .order('due_date');
+      final rows = await ref
+          .read(supabaseClientProvider)
+          .from('vw_receivables_aging')
+          .select(
+            'party_name, invoice_number, invoice_date, due_date, outstanding, aging_bucket',
+          )
+          .gt('outstanding', 0)
+          .order('due_date');
 
-  return (rows as List<dynamic>).map((row) {
-    final map = row as Map<String, dynamic>;
-    return ReceivablesAgingRow(
-      partyName: map['party_name'] as String? ?? 'Unnamed customer',
-      invoiceNumber: map['invoice_number'] as String? ?? '',
-      invoiceDate: map['invoice_date'] as String? ?? '',
-      dueDate: map['due_date'] as String?,
-      outstanding: (map['outstanding'] as num?)?.toDouble() ?? 0,
-      agingBucket: map['aging_bucket'] as String? ?? 'no_due_date',
-    );
-  }).toList();
-});
+      return (rows as List<dynamic>).map((row) {
+        final map = row as Map<String, dynamic>;
+        return ReceivablesAgingRow(
+          partyName: map['party_name'] as String? ?? 'Unnamed customer',
+          invoiceNumber: map['invoice_number'] as String? ?? '',
+          invoiceDate: map['invoice_date'] as String? ?? '',
+          dueDate: map['due_date'] as String?,
+          outstanding: (map['outstanding'] as num?)?.toDouble() ?? 0,
+          agingBucket: map['aging_bucket'] as String? ?? 'no_due_date',
+        );
+      }).toList();
+    });
 
 class ReportsScreen extends ConsumerStatefulWidget {
   const ReportsScreen({this.embeddedInShell = false, super.key});
@@ -249,9 +250,9 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
             child: Text(
               'Reports',
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF1A2332),
-                  ),
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF1A2332),
+              ),
             ),
           ),
         _ReportsTabBar(controller: _tabController),
@@ -430,9 +431,9 @@ class _ReportsSummaryCard extends StatelessWidget {
                 Text(
                   formatRwf(amount),
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: _ReportsScreenState.heroGreen,
-                      ),
+                    fontWeight: FontWeight.w800,
+                    color: _ReportsScreenState.heroGreen,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -545,9 +546,9 @@ class _ReportsPeriodSection extends ConsumerWidget {
         Text(
           'Select Period',
           style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF1A2332),
-              ),
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFF1A2332),
+          ),
         ),
         const SizedBox(height: 10),
         Row(
@@ -572,8 +573,11 @@ class _ReportsPeriodSection extends ConsumerWidget {
         const SizedBox(height: 10),
         Row(
           children: [
-            Icon(Icons.calendar_today_outlined,
-                size: 16, color: Colors.grey.shade600),
+            Icon(
+              Icons.calendar_today_outlined,
+              size: 16,
+              color: Colors.grey.shade600,
+            ),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
@@ -622,8 +626,10 @@ class _DailySalesTab extends ConsumerWidget {
         onRetry: () => ref.invalidate(dailySalesReportProvider),
       ),
       data: (rows) {
-        final periodTotal =
-            rows.fold<double>(0, (sum, row) => sum + row.totalSales);
+        final periodTotal = rows.fold<double>(
+          0,
+          (sum, row) => sum + row.totalSales,
+        );
         return _ReportScroll(
           emptyMessage: 'No sales in this period',
           onRefresh: () async {
@@ -641,9 +647,9 @@ class _DailySalesTab extends ConsumerWidget {
             Text(
               'Daily Summary',
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF1A2332),
-                  ),
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF1A2332),
+              ),
             ),
             const SizedBox(height: 10),
           ],
@@ -674,8 +680,10 @@ class _GrossProfitTab extends ConsumerWidget {
         onRetry: () => ref.invalidate(productProfitReportProvider),
       ),
       data: (rows) {
-        final totalProfit =
-            rows.fold<double>(0, (sum, row) => sum + row.estimatedGrossProfit);
+        final totalProfit = rows.fold<double>(
+          0,
+          (sum, row) => sum + row.estimatedGrossProfit,
+        );
 
         return _ReportScroll(
           emptyMessage: 'No product sales in this period',
@@ -695,9 +703,9 @@ class _GrossProfitTab extends ConsumerWidget {
             Text(
               'By Product',
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF1A2332),
-                  ),
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF1A2332),
+              ),
             ),
             const SizedBox(height: 10),
           ],
@@ -770,15 +778,14 @@ class _ReceivablesAgingTab extends ConsumerWidget {
             Text(
               'Outstanding Invoices',
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF1A2332),
-                  ),
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF1A2332),
+              ),
             ),
             const SizedBox(height: 10),
           ],
           rows: rows,
-          rowBuilder: (row) =>
-              _AgingRowCard(row: row as ReceivablesAgingRow),
+          rowBuilder: (row) => _AgingRowCard(row: row as ReceivablesAgingRow),
         );
       },
     );
@@ -967,8 +974,11 @@ class _ReportError extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.cloud_off_outlined,
-                size: 48, color: Colors.grey.shade500),
+            Icon(
+              Icons.cloud_off_outlined,
+              size: 48,
+              color: Colors.grey.shade500,
+            ),
             const SizedBox(height: 12),
             Text(message, textAlign: TextAlign.center),
             const SizedBox(height: 16),

@@ -46,13 +46,14 @@ class PendingSaleLine {
   double get lineTotal => quantity * unitPrice;
 
   Map<String, dynamic> toJson() => {
-        'product_id': productId,
-        'product_name': productName,
-        'quantity': quantity,
-        'unit_price': unitPrice,
-      };
+    'product_id': productId,
+    'product_name': productName,
+    'quantity': quantity,
+    'unit_price': unitPrice,
+  };
 
-  factory PendingSaleLine.fromJson(Map<String, dynamic> json) => PendingSaleLine(
+  factory PendingSaleLine.fromJson(Map<String, dynamic> json) =>
+      PendingSaleLine(
         productId: json['product_id'] as String,
         productName: json['product_name'] as String? ?? 'Product',
         quantity: (json['quantity'] as num?)?.toDouble() ?? 0,
@@ -107,40 +108,41 @@ class PendingSale {
   }
 
   Map<String, dynamic> toJson() => {
-        'client_reference_id': clientReferenceId,
-        'tenant_id': tenantId,
-        'branch_id': branchId,
-        'warehouse_id': warehouseId,
-        'sale_type': saleType,
-        'party_id': partyId,
-        'notes': notes,
-        'captured_at': capturedAt.toIso8601String(),
-        'lines': lines.map((l) => l.toJson()).toList(),
-        'last_error': lastError,
-      };
+    'client_reference_id': clientReferenceId,
+    'tenant_id': tenantId,
+    'branch_id': branchId,
+    'warehouse_id': warehouseId,
+    'sale_type': saleType,
+    'party_id': partyId,
+    'notes': notes,
+    'captured_at': capturedAt.toIso8601String(),
+    'lines': lines.map((l) => l.toJson()).toList(),
+    'last_error': lastError,
+  };
 
   factory PendingSale.fromJson(Map<String, dynamic> json) => PendingSale(
-        clientReferenceId: json['client_reference_id'] as String,
-        tenantId: json['tenant_id'] as String,
-        branchId: json['branch_id'] as String,
-        warehouseId: json['warehouse_id'] as String,
-        saleType: json['sale_type'] as String? ?? 'cash',
-        partyId: json['party_id'] as String?,
-        notes: json['notes'] as String?,
-        capturedAt: DateTime.tryParse(json['captured_at'] as String? ?? '') ??
-            DateTime.now(),
-        lines: (json['lines'] as List<dynamic>? ?? [])
-            .map((e) => PendingSaleLine.fromJson(e as Map<String, dynamic>))
-            .toList(),
-        lastError: json['last_error'] as String?,
-      );
+    clientReferenceId: json['client_reference_id'] as String,
+    tenantId: json['tenant_id'] as String,
+    branchId: json['branch_id'] as String,
+    warehouseId: json['warehouse_id'] as String,
+    saleType: json['sale_type'] as String? ?? 'cash',
+    partyId: json['party_id'] as String?,
+    notes: json['notes'] as String?,
+    capturedAt:
+        DateTime.tryParse(json['captured_at'] as String? ?? '') ??
+        DateTime.now(),
+    lines: (json['lines'] as List<dynamic>? ?? [])
+        .map((e) => PendingSaleLine.fromJson(e as Map<String, dynamic>))
+        .toList(),
+    lastError: json['last_error'] as String?,
+  );
 }
 
 /// Persists unsynced sales in encrypted on-device storage
 /// (flutter_secure_storage), as a single JSON list under one key.
 class OfflineSaleQueue {
   OfflineSaleQueue({FlutterSecureStorage? storage})
-      : _storage = storage ?? const FlutterSecureStorage();
+    : _storage = storage ?? const FlutterSecureStorage();
 
   final FlutterSecureStorage _storage;
 
@@ -180,8 +182,9 @@ class OfflineSaleQueue {
 
   Future<void> update(PendingSale sale) async {
     final sales = await list();
-    final index = sales
-        .indexWhere((s) => s.clientReferenceId == sale.clientReferenceId);
+    final index = sales.indexWhere(
+      (s) => s.clientReferenceId == sale.clientReferenceId,
+    );
     if (index >= 0) {
       sales[index] = sale;
       await _writeAll(sales);
@@ -202,6 +205,8 @@ final offlineSaleQueueProvider = Provider<OfflineSaleQueue>((ref) {
 });
 
 /// Number of sales still waiting to be synced. Invalidate after enqueue/sync.
-final offlinePendingCountProvider = FutureProvider.autoDispose<int>((ref) async {
+final offlinePendingCountProvider = FutureProvider.autoDispose<int>((
+  ref,
+) async {
   return ref.read(offlineSaleQueueProvider).count();
 });

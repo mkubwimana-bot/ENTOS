@@ -46,20 +46,19 @@ class DashboardRepository {
 
     var todayEstimatedProfit = 0.0;
     for (final row in profitRows) {
-      todayEstimatedProfit +=
-          _asDouble((row as Map<String, dynamic>)['estimated_gross_profit']);
+      todayEstimatedProfit += _asDouble(
+        (row as Map<String, dynamic>)['estimated_gross_profit'],
+      );
     }
 
-    final lowStockProducts = lowStockRows
-        .map((row) {
-          final map = row as Map<String, dynamic>;
-          return LowStockItem(
-            productName: map['product_name'] as String? ?? 'Unknown product',
-            currentQuantity: _asDouble(map['current_quantity']),
-            reorderLevel: _asDouble(map['reorder_level']),
-          );
-        })
-        .toList();
+    final lowStockProducts = lowStockRows.map((row) {
+      final map = row as Map<String, dynamic>;
+      return LowStockItem(
+        productName: map['product_name'] as String? ?? 'Unknown product',
+        currentQuantity: _asDouble(map['current_quantity']),
+        reorderLevel: _asDouble(map['reorder_level']),
+      );
+    }).toList();
 
     return DashboardSummary(
       todaySales: todaySales,

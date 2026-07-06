@@ -62,27 +62,33 @@ class _NewSupplierScreenState extends ConsumerState<NewSupplierScreen> {
     setState(() => _isSubmitting = true);
     try {
       final client = ref.read(supabaseClientProvider);
-      final partyCode = await client.rpc(
-        'generate_party_code',
-        params: {
-          'target_tenant_id': tenant.tenantId,
-          'party_kind': 'supplier',
-        },
-      ) as String;
+      final partyCode =
+          await client.rpc(
+                'generate_party_code',
+                params: {
+                  'target_tenant_id': tenant.tenantId,
+                  'party_kind': 'supplier',
+                },
+              )
+              as String;
 
-      final insertedRows = await client.from('parties').insert({
-        'tenant_id': tenant.tenantId,
-        'party_code': partyCode,
-        'party_name': _nameController.text.trim(),
-        'party_kind': 'organization',
-        'primary_phone': _phoneController.text.trim().isEmpty
-            ? null
-            : _phoneController.text.trim(),
-        'opening_balance': 0,
-        'status': 'active',
-        'is_credit_eligible': false,
-        'created_by': tenant.userId,
-      }).select('id').limit(1);
+      final insertedRows = await client
+          .from('parties')
+          .insert({
+            'tenant_id': tenant.tenantId,
+            'party_code': partyCode,
+            'party_name': _nameController.text.trim(),
+            'party_kind': 'organization',
+            'primary_phone': _phoneController.text.trim().isEmpty
+                ? null
+                : _phoneController.text.trim(),
+            'opening_balance': 0,
+            'status': 'active',
+            'is_credit_eligible': false,
+            'created_by': tenant.userId,
+          })
+          .select('id')
+          .limit(1);
 
       final partyId = (insertedRows as List).first['id'] as String;
 
