@@ -97,9 +97,9 @@ class _MetricGrid extends StatelessWidget {
               color: Theme.of(context).colorScheme.primary,
             ),
             _MetricCard(
-              title: 'Money owed',
+              title: 'Unpaid sales',
               value: formatRwf(summary.moneyOwed),
-              subtitle: 'Customer balances',
+              subtitle: 'Receivables',
               icon: Icons.account_balance_wallet_outlined,
               color: Theme.of(context).colorScheme.tertiary,
             ),

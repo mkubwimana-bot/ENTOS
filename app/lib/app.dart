@@ -19,7 +19,11 @@ class SmeOsApp extends ConsumerWidget {
         scaffoldMessengerKey: rootScaffoldMessengerKey,
         theme: ThemeData(
           useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1565C0)),
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF2E7D3E),
+            brightness: Brightness.light,
+          ),
+          scaffoldBackgroundColor: const Color(0xFFF4F6F8),
         ),
         home: const AuthGate(),
       ),

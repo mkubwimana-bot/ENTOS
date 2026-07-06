@@ -42,7 +42,6 @@ class NewCustomerScreen extends ConsumerStatefulWidget {
 
 class _NewCustomerScreenState extends ConsumerState<NewCustomerScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _codeController = TextEditingController();
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _openingBalanceController = TextEditingController();
@@ -54,7 +53,6 @@ class _NewCustomerScreenState extends ConsumerState<NewCustomerScreen> {
 
   @override
   void dispose() {
-    _codeController.dispose();
     _nameController.dispose();
     _phoneController.dispose();
     _openingBalanceController.dispose();
@@ -73,9 +71,17 @@ class _NewCustomerScreenState extends ConsumerState<NewCustomerScreen> {
       final creditLimitText = _creditLimitController.text.trim();
       final creditTermsText = _creditTermsController.text.trim();
 
+      final partyCode = await ref.read(supabaseClientProvider).rpc(
+        'generate_party_code',
+        params: {
+          'target_tenant_id': tenant.tenantId,
+          'party_kind': 'customer',
+        },
+      ) as String;
+
       final insertedRows = await ref.read(supabaseClientProvider).from('parties').insert({
         'tenant_id': tenant.tenantId,
-        'party_code': _codeController.text.trim(),
+        'party_code': partyCode,
         'party_name': _nameController.text.trim(),
         'party_kind': 'individual',
         'primary_phone': _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
@@ -115,13 +121,6 @@ class _NewCustomerScreenState extends ConsumerState<NewCustomerScreen> {
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
-  }
-
-  String? _validateCode(String? value) {
-    final code = value?.trim() ?? '';
-    if (code.isEmpty) return 'Enter customer code';
-    if (code.length < 3) return 'Use at least 3 characters';
-    return null;
   }
 
   String? _validateName(String? value) {
@@ -184,16 +183,6 @@ class _NewCustomerScreenState extends ConsumerState<NewCustomerScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  TextFormField(
-                    controller: _codeController,
-                    enabled: !_isSubmitting,
-                    decoration: const InputDecoration(
-                      labelText: 'Customer code',
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: _validateCode,
-                  ),
-                  const SizedBox(height: 12),
                   TextFormField(
                     controller: _nameController,
                     enabled: !_isSubmitting,

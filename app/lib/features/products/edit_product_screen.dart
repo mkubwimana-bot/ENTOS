@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/supabase/supabase_providers.dart';
+import '../../core/tenant/active_tenant.dart';
 import '../../core/widgets/main_menu_nav_action.dart';
 
 class _ProductCategoryOption {
@@ -51,16 +52,8 @@ final editProductProvider =
   final userId = client.auth.currentUser?.id;
   if (userId == null) throw Exception('You must be signed in.');
 
-  final membershipRows = await client
-      .from('user_tenants')
-      .select('tenant_id')
-      .eq('user_id', userId)
-      .eq('membership_status', 'active')
-      .limit(1);
-  if ((membershipRows as List).isEmpty) {
-    throw Exception('No active tenant membership found.');
-  }
-  final tenantId = membershipRows.first['tenant_id'] as String;
+  final membership = await resolveActiveTenantMembership(client);
+  final tenantId = membership.tenantId;
 
   final results = await Future.wait<dynamic>([
     client
@@ -70,6 +63,7 @@ final editProductProvider =
           'category_id, selling_price, cost_price, reorder_level, status',
         )
         .eq('id', productId)
+        .eq('tenant_id', tenantId)
         .limit(1),
     client
         .from('product_types')
@@ -112,8 +106,33 @@ final editProductProvider =
       })
       .toList();
 
+  var categoryId = product['category_id'] as String?;
+  if (categoryId != null &&
+      !categories.any((category) => category.id == categoryId)) {
+    final extraCategoryRows = await client
+        .from('product_categories')
+        .select('id, category_name')
+        .eq('id', categoryId)
+        .eq('tenant_id', tenantId)
+        .limit(1);
+    if ((extraCategoryRows as List).isNotEmpty) {
+      final map = extraCategoryRows.first;
+      categories.add(
+        _ProductCategoryOption(
+          id: map['id'] as String,
+          name: map['category_name'] as String? ?? 'Unknown',
+        ),
+      );
+      categories.sort((a, b) => a.name.compareTo(b.name));
+    } else {
+      categoryId = null;
+    }
+  }
+
   final typeId = product['product_type_id'] as String;
   final unitId = product['base_unit_id'] as String;
+  final status = product['status'] as String? ?? 'active';
+  const allowedStatuses = {'active', 'inactive', 'discontinued'};
 
   return _EditProductData(
     productId: product['id'] as String,
@@ -124,9 +143,9 @@ final editProductProvider =
     unitCode: unitsById[unitId] ?? '—',
     sellingPrice: (product['selling_price'] as num?)?.toDouble() ?? 0,
     costPrice: (product['cost_price'] as num?)?.toDouble(),
-    categoryId: product['category_id'] as String?,
+    categoryId: categoryId,
     reorderLevel: (product['reorder_level'] as num?)?.toDouble(),
-    status: product['status'] as String? ?? 'active',
+    status: allowedStatuses.contains(status) ? status : 'active',
     categories: categories,
   );
 });
@@ -195,7 +214,13 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
 
       if (mounted) Navigator.of(context).pop(true);
     } on PostgrestException catch (e) {
-      if (mounted) setState(() => _errorMessage = e.message);
+      if (mounted) {
+        final message = e.code == '42501' ||
+                e.message.toLowerCase().contains('row-level security')
+            ? 'You do not have permission to edit products. Ask the owner to assign you a manager or owner role.'
+            : e.message;
+        setState(() => _errorMessage = message);
+      }
     } catch (_) {
       if (mounted) {
         setState(() => _errorMessage = 'Could not save product. Please try again.');

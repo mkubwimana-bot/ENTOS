@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/product/product_code_generator.dart';
 import '../../core/supabase/supabase_providers.dart';
 import '../../core/widgets/main_menu_nav_action.dart';
 
@@ -139,11 +140,11 @@ class NewProductScreen extends ConsumerStatefulWidget {
 
 class _NewProductScreenState extends ConsumerState<NewProductScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _codeController = TextEditingController();
   final _nameController = TextEditingController();
   final _priceController = TextEditingController();
   final _reorderLevelController = TextEditingController();
 
+  String? _previewProductCode;
   String? _selectedTypeId;
   String? _selectedCategoryId;
   String? _selectedUnitId;
@@ -152,11 +153,22 @@ class _NewProductScreenState extends ConsumerState<NewProductScreen> {
 
   @override
   void dispose() {
-    _codeController.dispose();
     _nameController.dispose();
     _priceController.dispose();
     _reorderLevelController.dispose();
     super.dispose();
+  }
+
+  void _updateCodePreview(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) {
+      setState(() => _previewProductCode = null);
+      return;
+    }
+    setState(() {
+      _previewProductCode =
+          '${deriveProductCodePrefix(trimmed)}### (assigned on save)';
+    });
   }
 
   Future<void> _save(_NewProductLookups lookups) async {
@@ -176,9 +188,17 @@ class _NewProductScreenState extends ConsumerState<NewProductScreen> {
 
     setState(() => _isSubmitting = true);
     try {
+      final productCode = await ref.read(supabaseClientProvider).rpc(
+        'generate_product_code',
+        params: {
+          'target_tenant_id': lookups.tenant.tenantId,
+          'product_name': _nameController.text.trim(),
+        },
+      ) as String;
+
       await ref.read(supabaseClientProvider).from('products').insert({
         'tenant_id': lookups.tenant.tenantId,
-        'product_code': _codeController.text.trim(),
+        'product_code': productCode,
         'product_name': _nameController.text.trim(),
         'product_type_id': _selectedTypeId,
         'category_id': _selectedCategoryId,
@@ -201,13 +221,6 @@ class _NewProductScreenState extends ConsumerState<NewProductScreen> {
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
-  }
-
-  String? _validateCode(String? value) {
-    final code = value?.trim() ?? '';
-    if (code.isEmpty) return 'Enter product code';
-    if (code.length < 3) return 'Use at least 3 characters';
-    return null;
   }
 
   String? _validateName(String? value) {
@@ -271,16 +284,6 @@ class _NewProductScreenState extends ConsumerState<NewProductScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   TextFormField(
-                    controller: _codeController,
-                    enabled: !_isSubmitting,
-                    decoration: const InputDecoration(
-                      labelText: 'Product code',
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: _validateCode,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
                     controller: _nameController,
                     enabled: !_isSubmitting,
                     decoration: const InputDecoration(
@@ -288,7 +291,19 @@ class _NewProductScreenState extends ConsumerState<NewProductScreen> {
                       border: OutlineInputBorder(),
                     ),
                     validator: _validateName,
+                    onChanged: _updateCodePreview,
                   ),
+                  if (_previewProductCode != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Product code: $_previewProductCode',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant,
+                          ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     initialValue: _selectedTypeId,

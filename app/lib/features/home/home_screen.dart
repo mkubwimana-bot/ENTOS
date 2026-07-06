@@ -5,330 +5,234 @@ import '../../core/supabase/supabase_providers.dart';
 import '../customers/customers_screen.dart';
 import '../dashboard/dashboard_providers.dart';
 import '../dashboard/dashboard_screen.dart';
-import '../inventory/current_stock_screen.dart';
-import '../inventory/low_stock_screen.dart';
-import '../inventory/stock_adjustment_screen.dart';
-import '../inventory/stock_check_screen.dart';
-import '../inventory/stock_movement_history_screen.dart';
-import '../payments/mobile_payment_screen.dart';
-import '../payments/payments_list_screen.dart';
-import '../payments/record_payment_screen.dart';
+import '../inventory/stock_hub_tab.dart';
 import '../products/products_screen.dart';
 import '../profile/profile_screen.dart';
 import '../reports/reports_screen.dart';
-import '../sales/new_sale_screen.dart';
 import '../sales/offline_sale_queue.dart';
-import '../sales/quick_sale_screen.dart';
-import '../sales/sales_list_screen.dart';
+import '../sales/sales_hub_tab.dart';
 import '../settings/business_setup_screen.dart';
 import '../settings/subscription_status_screen.dart';
 import '../sync/offline_auto_sync.dart';
 import '../sync/sync_conflict_review_screen.dart';
 import '../sync/sync_status_screen.dart';
+import 'home_dashboard_tab.dart';
+import 'home_submenu_screen.dart';
 
-/// Main menu after sign-in. Navigation hub for all business screens.
-///
-/// Dashboard metrics (today's sales, money owed, etc.) live on [DashboardScreen]
-/// and are opened from here — not shown on this menu by default.
-class HomeScreen extends ConsumerWidget {
+/// Signed-in shell: dashboard home tab + bottom navigation.
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
+  int _tabIndex = 0;
+
+  void _openSubMenu(String title, List<HomeSubMenuItem> items) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => HomeSubMenuScreen(title: title, items: items),
+      ),
+    );
+  }
+
+  List<HomeSubMenuItem> _settingsItems() => [
+        HomeSubMenuItem(
+          label: 'Business Setup',
+          icon: Icons.storefront_outlined,
+          onTap: (context, _) async {
+            await Navigator.of(context).push<void>(
+              MaterialPageRoute<void>(
+                builder: (_) => const BusinessSetupScreen(),
+              ),
+            );
+          },
+        ),
+        HomeSubMenuItem(
+          label: 'Subscription',
+          icon: Icons.card_membership_outlined,
+          onTap: (context, _) async {
+            await Navigator.of(context).push<void>(
+              MaterialPageRoute<void>(
+                builder: (_) => const SubscriptionStatusScreen(),
+              ),
+            );
+          },
+        ),
+        HomeSubMenuItem(
+          label: 'My Profile',
+          icon: Icons.person_outline,
+          onTap: (context, _) async {
+            await Navigator.of(context).push<void>(
+              MaterialPageRoute<void>(builder: (_) => const ProfileScreen()),
+            );
+          },
+        ),
+      ];
+
+  void _openSalesTab() => setState(() => _tabIndex = 1);
+
+  void _openStockTab() => setState(() => _tabIndex = 2);
+
+  void _openReportsTab() => setState(() => _tabIndex = 3);
+
+  List<HomeSubMenuItem> _moreItems() {
+    final pendingSync = ref.read(offlinePendingCountProvider).asData?.value ?? 0;
+    final syncIssues = ref.read(syncReviewIssueCountProvider).asData?.value ?? 0;
+    return [
+      HomeSubMenuItem(
+        label: 'Full Dashboard',
+        icon: Icons.dashboard_outlined,
+        onTap: (context, _) async {
+          await Navigator.of(context).push<void>(
+            MaterialPageRoute<void>(builder: (_) => const DashboardScreen()),
+          );
+        },
+      ),
+      HomeSubMenuItem(
+        label: 'Sync Status${pendingSync > 0 ? ' ($pendingSync)' : ''}',
+        icon: Icons.sync_outlined,
+        onTap: (context, ref) async {
+          await Navigator.of(context).push<void>(
+            MaterialPageRoute<void>(builder: (_) => const SyncStatusScreen()),
+          );
+          ref.invalidate(offlinePendingCountProvider);
+          ref.invalidate(dashboardSummaryProvider);
+          requestOfflineAutoSync(ref);
+        },
+      ),
+      HomeSubMenuItem(
+        label: 'Sync Review${syncIssues > 0 ? ' ($syncIssues)' : ''}',
+        icon: Icons.rule_folder_outlined,
+        onTap: (context, ref) async {
+          await Navigator.of(context).push<void>(
+            MaterialPageRoute<void>(
+              builder: (_) => const SyncConflictReviewScreen(),
+            ),
+          );
+          ref.invalidate(syncReviewIssueCountProvider);
+        },
+      ),
+      ..._settingsItems(),
+    ];
+  }
+
+  Future<void> _openSync() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(builder: (_) => const SyncStatusScreen()),
+    );
+    ref.invalidate(offlinePendingCountProvider);
+    ref.invalidate(dashboardSummaryProvider);
+    requestOfflineAutoSync(ref);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final client = ref.watch(supabaseClientProvider);
-    final email = client.auth.currentUser?.email;
+    const navGreen = Color(0xFF2E7D3E);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('SME-OS'),
-        actions: [
-          IconButton(
-            tooltip: 'Sign out',
-            onPressed: () => client.auth.signOut(),
-            icon: const Icon(Icons.logout),
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: EdgeInsets.fromLTRB(
-          16,
-          16,
-          16,
-          16 + MediaQuery.of(context).padding.bottom,
-        ),
-        children: [
-          if (email != null) ...[
-            Text(
-              'Welcome back',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            Text(
-              email,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+      key: _scaffoldKey,
+      drawer: Drawer(
+        child: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            children: [
+              ListTile(
+                leading: const Icon(Icons.dashboard_outlined),
+                title: const Text('Full Dashboard'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const DashboardScreen(),
+                    ),
+                  );
+                },
               ),
-            ),
-            const SizedBox(height: 24),
-          ],
-          FilledButton.icon(
-            onPressed: () {
+              ListTile(
+                leading: const Icon(Icons.settings_outlined),
+                title: const Text('Settings'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _openSubMenu('Settings', _settingsItems());
+                },
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.logout),
+                title: const Text('Sign out'),
+                onTap: () {
+                  Navigator.pop(context);
+                  client.auth.signOut();
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+      body: IndexedStack(
+        index: _tabIndex,
+        children: [
+          HomeDashboardTab(
+            onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
+            onSalesTap: _openSalesTab,
+            onProductsTap: () {
               Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const DashboardScreen(),
-                ),
+                MaterialPageRoute<void>(builder: (_) => const ProductsScreen()),
               );
             },
-            icon: const Icon(Icons.dashboard_outlined),
-            label: const Text('Dashboard'),
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const BusinessSetupScreen(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.storefront_outlined),
-            label: const Text('Business Setup'),
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const SubscriptionStatusScreen(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.card_membership_outlined),
-            label: const Text('Subscription'),
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const ProfileScreen(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.person_outline),
-            label: const Text('My Profile'),
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const ProductsScreen(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.inventory_2_outlined),
-            label: const Text('Open Product List'),
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: () {
+            onCustomersTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(
                   builder: (_) => const CustomersScreen(),
                 ),
               );
             },
-            icon: const Icon(Icons.people_alt_outlined),
-            label: const Text('Open Customer List'),
+            onStockTap: _openStockTab,
+            onReportsTap: _openReportsTab,
+            onSyncTap: _openSync,
           ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: () async {
-              final recorded = await Navigator.of(context).push<bool>(
-                MaterialPageRoute<bool>(
-                  builder: (_) => const NewSaleScreen(),
-                ),
-              );
-              if (recorded == true) {
-                ref.invalidate(dashboardSummaryProvider);
-              }
-            },
-            icon: const Icon(Icons.receipt_long_outlined),
-            label: const Text('New Sale'),
+          const SalesHubTab(),
+          const StockHubTab(),
+          const ReportsScreen(embeddedInShell: true),
+          _HomeTabList(title: 'More', items: _moreItems()),
+        ],
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _tabIndex,
+        onDestinationSelected: (index) => setState(() => _tabIndex = index),
+        backgroundColor: Colors.white,
+        indicatorColor: navGreen.withValues(alpha: 0.12),
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        destinations: [
+          NavigationDestination(
+            icon: const Icon(Icons.home_outlined),
+            selectedIcon: const Icon(Icons.home, color: navGreen),
+            label: 'Home',
           ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: () async {
-              final recorded = await Navigator.of(context).push<bool>(
-                MaterialPageRoute<bool>(
-                  builder: (_) => const QuickSaleScreen(),
-                ),
-              );
-              if (recorded == true) {
-                ref.invalidate(dashboardSummaryProvider);
-                ref.invalidate(offlinePendingCountProvider);
-                requestOfflineAutoSync(ref);
-              }
-            },
-            icon: const Icon(Icons.bolt_outlined),
-            label: const Text('Mobile Quick Sale'),
+          NavigationDestination(
+            icon: const Icon(Icons.point_of_sale_outlined),
+            selectedIcon: const Icon(Icons.point_of_sale, color: navGreen),
+            label: 'Sales',
           ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const SalesListScreen(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.list_alt_outlined),
-            label: const Text('Sales List'),
+          NavigationDestination(
+            icon: const Icon(Icons.inventory_2_outlined),
+            selectedIcon: const Icon(Icons.inventory_2, color: navGreen),
+            label: 'Stock',
           ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: () async {
-              final recorded = await Navigator.of(context).push<bool>(
-                MaterialPageRoute<bool>(
-                  builder: (_) => const RecordPaymentScreen(),
-                ),
-              );
-              if (recorded == true) {
-                ref.invalidate(dashboardSummaryProvider);
-              }
-            },
-            icon: const Icon(Icons.payments_outlined),
-            label: const Text('Record Payment'),
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const PaymentsListScreen(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.receipt_outlined),
-            label: const Text('Payments List'),
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: () async {
-              final recorded = await Navigator.of(context).push<bool>(
-                MaterialPageRoute<bool>(
-                  builder: (_) => const MobilePaymentScreen(),
-                ),
-              );
-              if (recorded == true) {
-                ref.invalidate(dashboardSummaryProvider);
-              }
-            },
-            icon: const Icon(Icons.smartphone_outlined),
-            label: const Text('Mobile Payment'),
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const CurrentStockScreen(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.warehouse_outlined),
-            label: const Text('Current Stock'),
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const StockCheckScreen(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.search_outlined),
-            label: const Text('Stock Check'),
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: () async {
-              final adjusted = await Navigator.of(context).push<bool>(
-                MaterialPageRoute<bool>(
-                  builder: (_) => const StockAdjustmentScreen(),
-                ),
-              );
-              if (adjusted == true) {
-                ref.invalidate(dashboardSummaryProvider);
-              }
-            },
-            icon: const Icon(Icons.tune_outlined),
-            label: const Text('Stock Adjustment'),
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const StockMovementHistoryScreen(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.history_outlined),
-            label: const Text('Stock Movements'),
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const LowStockScreen(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.warning_amber_outlined),
-            label: const Text('Low Stock'),
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const ReportsScreen(),
-                ),
-              );
-            },
+          NavigationDestination(
             icon: const Icon(Icons.bar_chart_outlined),
-            label: const Text('Reports'),
+            selectedIcon: const Icon(Icons.bar_chart, color: navGreen),
+            label: 'Reports',
           ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: () async {
-              await Navigator.of(context).push<void>(
-                MaterialPageRoute<void>(
-                  builder: (_) => const SyncConflictReviewScreen(),
-                ),
-              );
-              ref.invalidate(syncReviewIssueCountProvider);
-            },
-            icon: const Icon(Icons.rule_folder_outlined),
-            label: const _SyncReviewLabel(),
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: () async {
-              await Navigator.of(context).push<void>(
-                MaterialPageRoute<void>(
-                  builder: (_) => const SyncStatusScreen(),
-                ),
-              );
-              ref.invalidate(offlinePendingCountProvider);
-              ref.invalidate(dashboardSummaryProvider);
-              requestOfflineAutoSync(ref);
-            },
-            icon: const Icon(Icons.sync_outlined),
-            label: const _SyncStatusLabel(),
+          NavigationDestination(
+            icon: const Icon(Icons.more_horiz),
+            selectedIcon: const Icon(Icons.more_horiz, color: navGreen),
+            label: 'More',
           ),
         ],
       ),
@@ -336,24 +240,50 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-/// Shows "Sync Review" with a count of open server-side issues.
-class _SyncReviewLabel extends ConsumerWidget {
-  const _SyncReviewLabel();
+class _HomeTabList extends ConsumerWidget {
+  const _HomeTabList({required this.title, required this.items});
+
+  final String title;
+  final List<HomeSubMenuItem> items;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final count = ref.watch(syncReviewIssueCountProvider).asData?.value ?? 0;
-    return Text(count > 0 ? 'Sync Review ($count)' : 'Sync Review');
-  }
-}
-
-/// Shows "Sync Status" with a count of locally queued (unsynced) sales.
-class _SyncStatusLabel extends ConsumerWidget {
-  const _SyncStatusLabel();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final count = ref.watch(offlinePendingCountProvider).asData?.value ?? 0;
-    return Text(count > 0 ? 'Sync Status ($count)' : 'Sync Status');
+    return ColoredBox(
+      color: const Color(0xFFF4F6F8),
+      child: SafeArea(
+        child: ListView.separated(
+          padding: const EdgeInsets.all(16),
+          itemCount: items.length + 1,
+          separatorBuilder: (_, _) => const SizedBox(height: 8),
+          itemBuilder: (context, index) {
+            if (index == 0) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  title,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              );
+            }
+            final item = items[index - 1];
+            return Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: const BorderSide(color: Color(0xFFE6EBF0)),
+              ),
+              child: ListTile(
+                leading: Icon(item.icon, color: const Color(0xFF2E7D3E)),
+                title: Text(item.label),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => item.onTap(context, ref),
+              ),
+            );
+          },
+        ),
+      ),
+    );
   }
 }
